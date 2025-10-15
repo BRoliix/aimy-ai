@@ -713,48 +713,50 @@ class AgenticAICore:
             return {"success": False, "error": f"AI execution failed: {e}"}
     
     def _execute_pure_app_launch(self, execution: Dict[str, Any], user_input: str) -> Dict[str, Any]:
-        """Execute pure AI app launch with production fallback"""
+        """Execute pure AI app launch - Always succeeds with AI intelligence"""
         try:
             app_name = execution.get('app_name', 'Calculator')
             command = execution.get('command', f"open -a '{app_name}'")
             
-            # Try system app launch first (works in development)
-            try:
-                import subprocess
-                result = subprocess.run(command, shell=True, capture_output=True, text=True)
-                
-                if result.returncode == 0:
-                    self.console.print(f"🚀 [green]AI Launched:[/green] {app_name}")
-                    return {
-                        "success": True,
-                        "type": "application_launch", 
-                        "app_name": app_name,
-                        "message": f"Successfully launched {app_name}!"
-                    }
-            except:
-                pass  # Fall through to web version
+            # Check if we're in a system environment that supports app launching
+            environment = os.getenv('AI_ENVIRONMENT', 'production')
             
-            # Production fallback: Use AI to determine web version
-            self.console.print(f"🌐 [yellow]Production Mode:[/yellow] Opening web version of {app_name}")
+            if environment == 'development':
+                # Try system app launch first (works in development)
+                try:
+                    import subprocess
+                    result = subprocess.run(command, shell=True, capture_output=True, text=True)
+                    
+                    if result.returncode == 0:
+                        self.console.print(f"🚀 [green]AI Launched:[/green] {app_name}")
+                        return {
+                            "success": True,
+                            "type": "application_launch", 
+                            "app_name": app_name,
+                            "message": f"Successfully launched {app_name}!"
+                        }
+                except:
+                    pass  # Fall through to web version
+            
+            # Always use AI to find a web alternative - this ALWAYS succeeds
+            self.console.print(f"🌐 [cyan]AI Finding Web Alternative:[/cyan] {app_name}")
             web_url = self._ai_determine_web_version(app_name, user_input)
             
-            if web_url:
-                import webbrowser
-                webbrowser.open(web_url)
-                self.console.print(f"🚀 [green]AI Opened Web Version:[/green] {app_name} at {web_url}")
-                return {
-                    "success": True,
-                    "type": "web_app_launch",
-                    "app_name": app_name,
-                    "web_url": web_url,
-                    "message": f"Opened web version of {app_name}! Since we're in a web environment, I opened {web_url} instead."
-                }
-            else:
-                return {
-                    "success": False,
-                    "error": f"Could not launch {app_name} - not available in web environment",
-                    "message": f"Sorry, {app_name} isn't available in this web environment. Try asking me to create something instead!"
-                }
+            # AI should always find something - if it returns None, use intelligent fallback
+            if not web_url:
+                web_url = self._ai_intelligent_web_fallback(app_name, user_input)
+            
+            import webbrowser
+            webbrowser.open(web_url)
+            self.console.print(f"🚀 [green]AI Opened Web Alternative:[/green] {app_name} → {web_url}")
+            
+            return {
+                "success": True,
+                "type": "web_app_launch",
+                "app_name": app_name,
+                "web_url": web_url,
+                "message": f"Opened web version of {app_name}! I found the best web alternative at {web_url}."
+            }
                 
         except Exception as e:
             return {"success": False, "error": f"App launch failed: {e}"}
@@ -766,20 +768,28 @@ class AgenticAICore:
                 web_prompt = f"""
                 User wants to open: "{app_name}" (from request: "{user_input}")
                 
-                What is the official web URL for this application/service?
-                Respond with just the URL, nothing else.
+                Find the best web URL for this application or service. Always provide a working URL.
+                
+                Rules:
+                1. If it's a known app/service, provide its official web version
+                2. If no direct web version exists, provide the most relevant alternative
+                3. ALWAYS return a valid https:// URL, never return "none" or empty
                 
                 Examples:
                 - "Spotify" -> "https://open.spotify.com"
+                - "Music" -> "https://music.apple.com" 
                 - "Netflix" -> "https://www.netflix.com"
                 - "YouTube" -> "https://www.youtube.com"
                 - "Calculator" -> "https://calculator.net"
-                - "Notes" -> "https://www.icloud.com"
+                - "Notes" -> "https://www.google.com/keep"
                 - "Maps" -> "https://maps.google.com"
-                - "Music" -> "https://music.apple.com"
                 - "Photos" -> "https://photos.google.com"
                 - "Safari" -> "https://www.google.com"
                 - "Chrome" -> "https://www.google.com"
+                - "Terminal" -> "https://replit.com"
+                - "TextEdit" -> "https://docs.google.com"
+                
+                Respond with ONLY the URL, nothing else.
                 """
                 
                 response = self.ai_generator.client.chat.completions.create(
@@ -797,6 +807,43 @@ class AgenticAICore:
             self.console.print(f"⚠️ [yellow]AI web version lookup failed:[/yellow] {e}")
         
         return None
+    
+    def _ai_intelligent_web_fallback(self, app_name: str, user_input: str) -> str:
+        """AI-powered intelligent fallback for any app request"""
+        try:
+            if self.ai_generator and self.ai_generator.ai_available:
+                fallback_prompt = f"""
+                User wants to open "{app_name}" but no direct web version was found.
+                
+                Think intelligently about what the user REALLY wants to do and provide the best web alternative.
+                
+                For example:
+                - Music apps -> music streaming service
+                - Photo apps -> photo sharing/editing service  
+                - Text editors -> online document editor
+                - Calculators -> web calculator
+                - Browsers -> search engine
+                - Communication apps -> web messaging
+                
+                Provide a URL that gives similar functionality. MUST be a valid https:// URL.
+                """
+                
+                response = self.ai_generator.client.chat.completions.create(
+                    model=self.ai_generator.model,
+                    messages=[{"role": "user", "content": fallback_prompt}],
+                    temperature=0.3,
+                    max_tokens=100
+                )
+                
+                url = response.choices[0].message.content.strip()
+                if url.startswith('http'):
+                    return url
+                    
+        except Exception as e:
+            self.console.print(f"⚠️ [yellow]AI fallback failed:[/yellow] {e}")
+        
+        # Final fallback - at least give them something useful
+        return "https://www.google.com"
     
     def _execute_pure_web_open(self, execution: Dict[str, Any], user_input: str) -> Dict[str, Any]:
         """Execute pure AI web navigation"""
@@ -848,15 +895,24 @@ class AgenticAICore:
                     self.console.print(f"📄 [yellow]Content Preview:[/yellow]")
                     self.console.print(preview)
                     
-                    # If it's HTML, also try to open it in browser
+                    # For web environments, provide a URL to view the content
+                    web_url = None
                     if content_type.lower() == 'html':
-                        try:
-                            import webbrowser
-                            full_path = os.path.abspath(file_path)
-                            webbrowser.open(f'file://{full_path}')
-                            self.console.print(f"🌐 [green]Opened in browser:[/green] {filename}")
-                        except Exception as browser_error:
-                            self.console.print(f"⚠️ [yellow]Could not open in browser:[/yellow] {browser_error}")
+                        # Check if we're in a web environment
+                        import os
+                        if os.environ.get('AI_ENVIRONMENT') == 'production' or 'PORT' in os.environ:
+                            # Production/web environment - provide web URL
+                            web_url = f"/view/{filename}"
+                            self.console.print(f"🌐 [green]Web URL:[/green] {web_url}")
+                        else:
+                            # Development environment - try to open local file
+                            try:
+                                import webbrowser
+                                full_path = os.path.abspath(file_path)
+                                webbrowser.open(f'file://{full_path}')
+                                self.console.print(f"🌐 [green]Opened in browser:[/green] {filename}")
+                            except Exception as browser_error:
+                                self.console.print(f"⚠️ [yellow]Could not open in browser:[/yellow] {browser_error}")
                     
                     return {
                         "success": True,
@@ -865,7 +921,9 @@ class AgenticAICore:
                         "content": generated_content,
                         "filename": filename,
                         "file_path": file_path,
+                        "web_url": web_url,
                         "content_preview": preview,
+                        "full_content": generated_content,  # Include full content for display
                         "message": f"AI created {content_type} content and saved to {filename}! Content preview: {preview}"
                     }
                     

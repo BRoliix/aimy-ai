@@ -498,15 +498,28 @@ def chat():
                     content_type = result.get('content_type', 'content')
                     filename = result.get('filename', 'generated_file')
                     content_preview = result.get('content_preview', '')
+                    full_content = result.get('full_content', '')
+                    web_url = result.get('web_url', '')
                     file_path = result.get('file_path', '')
                     
                     response = f"✅ AI created {content_type.upper()} content successfully! Saved as: {filename}"
                     
+                    # If there's a web URL, set it as action_url for opening
+                    if web_url:
+                        action_url = web_url
+                        response += f"\n\n🌐 Click to view: {web_url}"
+                    
                     if content_preview:
                         response += f"\n\n📄 Content Preview:\n```{content_type}\n{content_preview}\n```"
                     
+                    # Show full content in a collapsible section if it's not too long
+                    if full_content and len(full_content) <= 1000:
+                        response += f"\n\n📖 Full Content:\n```{content_type}\n{full_content}\n```"
+                    elif full_content:
+                        response += f"\n\n📖 Full Content Available - {len(full_content)} characters"
+                    
                     if file_path:
-                        response += f"\n\n� File Location: {file_path}"
+                        response += f"\n\n📁 File Location: {file_path}"
                 else:
                     response = "❌ Content creation failed."
             elif result_type == 'system_control':
@@ -571,6 +584,24 @@ def capabilities():
             'Real-time adaptation'
         ]
     })
+
+@app.route('/view/<filename>')
+def view_generated_content(filename):
+    """Serve generated content files"""
+    try:
+        import os
+        from flask import send_from_directory
+        
+        # Security: only allow viewing files from generated_content directory
+        safe_filename = os.path.basename(filename)  # Remove any path traversal
+        content_dir = os.path.join(os.getcwd(), 'generated_content')
+        
+        if os.path.exists(os.path.join(content_dir, safe_filename)):
+            return send_from_directory(content_dir, safe_filename)
+        else:
+            return "File not found", 404
+    except Exception as e:
+        return f"Error serving file: {e}", 500
 
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 8000))
