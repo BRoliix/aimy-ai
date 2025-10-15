@@ -4,9 +4,13 @@
 
 Aimy is an advanced agentic AI system powered by OpenAI's GPT-4 that performs tasks through dynamic reasoning rather than hardcoded solutions. It can create applications, control systems, browse the web, and have intelligent conversations - all generated on-demand through AI intelligence.
 
-## 🚀 Live Demo
+## 🚀 Deploy Your Own Aimy
 
-**🌐 Web Interface:** [Available on Railway](https://railway.app) *(Deploy your own instance)*
+**One-Click Railway Deploy:**
+
+[![Deploy on Railway](https://railway.app/button.svg)](https://railway.app/template/new?template=https://github.com/BRoliix/aimy-ai&envs=OPENAI_API_KEY&OPENAI_API_KEYDesc=Your+OpenAI+API+key+for+GPT-4+access)
+
+*Just add your OpenAI API key and deploy!*
 
 ## ✨ Features
 
