@@ -6,7 +6,7 @@
 After creating your GitHub repository at https://github.com/new:
 
 ```bash
-git remote add origin https://github.com/YOURUSERNAME/aimy-agentic-ai.git
+git remote add origin https://github.com/BRoliix/aimy-ai.git
 git branch -M main
 git push -u origin main
 ```
@@ -17,7 +17,7 @@ git push -u origin main
 2. **Click "New Project"**
 3. **Select "Deploy from GitHub repo"**
 4. **Connect your GitHub account** (if not already connected)
-5. **Select your repository**: `aimy-agentic-ai`
+5. **Select your repository**: `aimy-ai`
 6. **Click "Deploy Now"**
 
 ### Step 3: Configure Environment Variables

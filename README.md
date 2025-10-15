@@ -33,8 +33,8 @@ Aimy is an advanced agentic AI system powered by OpenAI's GPT-4 that performs ta
 
 1. **Clone the repository:**
 ```bash
-git clone https://github.com/yourusername/aimy-agentic-ai.git
-cd aimy-agentic-ai
+git clone https://github.com/BRoliix/aimy-ai.git
+cd aimy-ai
 ```
 
 2. **Install dependencies:**
@@ -155,8 +155,9 @@ This project is licensed under the MIT License.
 
 ## 🔗 Links
 
-- **Deploy on Railway**: Click the Railway button above
-- **Issues**: [GitHub Issues](https://github.com/yourusername/aimy-agentic-ai/issues)
+- **Repository**: [GitHub](https://github.com/BRoliix/aimy-ai)
+- **Deploy on Railway**: Connect your GitHub repo to Railway
+- **Issues**: [GitHub Issues](https://github.com/BRoliix/aimy-ai/issues)
 
 ---
 
