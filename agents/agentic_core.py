@@ -808,6 +808,240 @@ class AgenticAICore:
         
         return None
     
+    def _ai_determine_save_locations(self, content_type: str, filename: str, user_input: str) -> List[Dict[str, str]]:
+        """AI-powered smart system file location determination"""
+        try:
+            if self.ai_generator and self.ai_generator.ai_available:
+                location_prompt = f"""
+                User created: {content_type} file named "{filename}"
+                User request: "{user_input}"
+                
+                Determine the best USER SYSTEM locations to save this file for accessibility. Focus on user directories.
+                
+                Respond with JSON array of 2-3 locations prioritizing user system access:
+                [
+                    {{
+                        "path": "/Users/{username}/Desktop/{filename}",
+                        "type": "primary",
+                        "description": "reason for this location"
+                    }},
+                    {{
+                        "path": "/Users/{username}/Documents/AimyGenerated/{filename}",  
+                        "type": "organized",
+                        "description": "organized storage"
+                    }}
+                ]
+                
+                Smart location rules:
+                - Code files (.py, .js, .html) → Desktop/AimyCode/ for quick access
+                - Learning/demo files → Desktop/ for immediate use
+                - Documents → Documents/AimyGenerated/ for organization
+                - Quick tests → Desktop/
+                - Professional projects → Documents/AimyGenerated/
+                
+                ALWAYS use /Users/{username}/ paths. Create organized subdirectories when appropriate.
+                """
+                
+                response = self.ai_generator.client.chat.completions.create(
+                    model=self.ai_generator.model,
+                    messages=[{"role": "user", "content": location_prompt}],
+                    temperature=0.2,
+                    max_tokens=300
+                )
+                
+                import json
+                import os
+                # Get username first
+                username = os.getenv('USER', 'user')
+                
+                locations = json.loads(response.choices[0].message.content.strip())
+                
+                # Replace {username} with actual username
+                for location in locations:
+                    location['path'] = location['path'].replace('{username}', username)
+                    location['path'] = location['path'].replace('{filename}', filename)
+                    
+                    # Ensure directory exists
+                    dir_path = os.path.dirname(location['path'])
+                    if not os.path.exists(dir_path):
+                        os.makedirs(dir_path, exist_ok=True)
+                        self.console.print(f"📁 [green]Created:[/green] {dir_path}")
+                
+                return locations
+                
+        except Exception as e:
+            self.console.print(f"⚠️ [yellow]AI location determination failed:[/yellow] {e}")
+        
+        # Smart fallback locations - prioritize user system
+        import os
+        username = os.getenv('USER', 'user')
+        
+        # Determine smart fallback based on content type
+        if content_type.lower() in ['python', 'py', 'javascript', 'js', 'html', 'css']:
+            primary_dir = f"/Users/{username}/Desktop/AimyCode"
+            secondary_dir = f"/Users/{username}/Documents/AimyGenerated"
+        else:
+            primary_dir = f"/Users/{username}/Desktop"
+            secondary_dir = f"/Users/{username}/Documents/AimyGenerated"
+            
+        # Create directories
+        for dir_path in [primary_dir, secondary_dir]:
+            if not os.path.exists(dir_path):
+                os.makedirs(dir_path, exist_ok=True)
+        
+        return [
+            {
+                "path": f"{primary_dir}/{filename}",
+                "type": "primary",
+                "description": "Primary location for easy access"
+            },
+            {
+                "path": f"{secondary_dir}/{filename}",
+                "type": "organized", 
+                "description": "Organized storage location"
+            }
+        ]
+    
+    def _ai_execute_generated_content(self, content_type: str, file_path: str, user_input: str, generated_content: str) -> Dict[str, Any]:
+        """AI-powered execution and opening of generated content"""
+        try:
+            if self.ai_generator and self.ai_generator.ai_available:
+                execution_prompt = f"""
+                Generated file: {content_type} at "{file_path}"
+                User request: "{user_input}"
+                Content preview: {generated_content[:300]}...
+                
+                Determine the best action to take with this generated content:
+                1. Should it be executed/run? (for code files)
+                2. Should it be opened in a specific application?
+                3. What system permissions might be needed?
+                
+                Respond with JSON:
+                {{
+                    "should_execute": true/false,
+                    "execution_method": "terminal_command" | "app_launch" | "web_open",
+                    "command": "exact command to run if executing",
+                    "app_to_open": "application name if opening",
+                    "requires_permission": true/false,
+                    "permission_reason": "why permission is needed",
+                    "success_message": "message to show user"
+                }}
+                
+                Examples:
+                - Python file: {{"should_execute": true, "execution_method": "terminal_command", "command": "python3 {file_path}"}}
+                - HTML file: {{"should_execute": false, "execution_method": "app_launch", "app_to_open": "Safari"}}
+                - Text file: {{"should_execute": false, "execution_method": "app_launch", "app_to_open": "TextEdit"}}
+                """
+                
+                response = self.ai_generator.client.chat.completions.create(
+                    model=self.ai_generator.model,
+                    messages=[{"role": "user", "content": execution_prompt}],
+                    temperature=0.2,
+                    max_tokens=200
+                )
+                
+                import json
+                execution_plan = json.loads(response.choices[0].message.content.strip())
+                
+                # Check permissions before executing
+                if execution_plan.get('requires_permission') and not self._check_system_permissions(user_input):
+                    return {
+                        "attempted": True,
+                        "success": False,
+                        "message": "System execution requires development environment permissions",
+                        "permission_needed": execution_plan.get('permission_reason', 'System access')
+                    }
+                
+                # Execute based on AI decision
+                if execution_plan.get('should_execute') and execution_plan.get('command'):
+                    return self._execute_ai_system_command(execution_plan.get('command'), file_path)
+                elif execution_plan.get('app_to_open'):
+                    return self._execute_ai_app_open(execution_plan.get('app_to_open'), file_path)
+                else:
+                    return {
+                        "attempted": False,
+                        "success": True,
+                        "message": "Content created and saved successfully"
+                    }
+                    
+        except Exception as e:
+            self.console.print(f"⚠️ [yellow]AI execution planning failed:[/yellow] {e}")
+            
+        return {
+            "attempted": False,
+            "success": True,
+            "message": "Content created successfully"
+        }
+    
+    def _execute_ai_system_command(self, command: str, file_path: str) -> Dict[str, Any]:
+        """Execute AI-determined system command"""
+        try:
+            import subprocess
+            result = subprocess.run(command, shell=True, capture_output=True, text=True)
+            
+            if result.returncode == 0:
+                self.console.print(f"🚀 [green]AI Executed:[/green] {command}")
+                output = result.stdout.strip() if result.stdout else "Executed successfully"
+                return {
+                    "attempted": True,
+                    "success": True,
+                    "command": command,
+                    "output": output,
+                    "message": f"Successfully executed: {command}"
+                }
+            else:
+                error_msg = result.stderr.strip() if result.stderr else "Execution failed"
+                self.console.print(f"❌ [red]Execution failed:[/red] {error_msg}")
+                return {
+                    "attempted": True,
+                    "success": False,
+                    "command": command,
+                    "error": error_msg,
+                    "message": f"Execution failed: {error_msg}"
+                }
+                
+        except Exception as e:
+            return {
+                "attempted": True,
+                "success": False,
+                "error": str(e),
+                "message": f"Could not execute command: {e}"
+            }
+    
+    def _execute_ai_app_open(self, app_name: str, file_path: str) -> Dict[str, Any]:
+        """Open file with AI-determined application"""
+        try:
+            import subprocess
+            command = f"open -a '{app_name}' '{file_path}'"
+            result = subprocess.run(command, shell=True, capture_output=True, text=True)
+            
+            if result.returncode == 0:
+                self.console.print(f"📱 [green]AI Opened:[/green] {file_path} with {app_name}")
+                return {
+                    "attempted": True,
+                    "success": True,
+                    "app": app_name,
+                    "file": file_path,
+                    "message": f"Opened {file_path} with {app_name}"
+                }
+            else:
+                self.console.print(f"❌ [red]App open failed:[/red] {result.stderr.strip()}")
+                return {
+                    "attempted": True,
+                    "success": False,
+                    "app": app_name,
+                    "error": result.stderr.strip(),
+                    "message": f"Could not open with {app_name}"
+                }
+                
+        except Exception as e:
+            return {
+                "attempted": True,
+                "success": False,
+                "error": str(e),
+                "message": f"Could not open file: {e}"
+            }
+    
     def _ai_intelligent_web_fallback(self, app_name: str, user_input: str) -> str:
         """AI-powered intelligent fallback for any app request"""
         try:
@@ -864,7 +1098,7 @@ class AgenticAICore:
             return {"success": False, "error": f"Web navigation failed: {e}"}
     
     def _execute_pure_content_creation(self, execution: Dict[str, Any], user_input: str) -> Dict[str, Any]:
-        """Execute pure AI content creation"""
+        """Execute pure AI content creation with smart system integration"""
         try:
             content_type = execution.get('content_type', 'html')
             
@@ -875,70 +1109,76 @@ class AgenticAICore:
                 generated_content = ai_result.get("content", "")
                 filename = ai_result.get("filename", f"ai_generated_{content_type}")
                 
-                # Save the content to a file
-                import os
-                output_dir = "generated_content"
-                if not os.path.exists(output_dir):
-                    os.makedirs(output_dir)
+                # AI-powered smart file location determination
+                save_locations = self._ai_determine_save_locations(content_type, filename, user_input)
                 
-                file_path = os.path.join(output_dir, filename)
-                
-                try:
-                    with open(file_path, 'w', encoding='utf-8') as f:
-                        f.write(generated_content)
-                    
-                    self.console.print(f"🎨 [green]AI Created:[/green] {content_type.upper()} content")
-                    self.console.print(f"📁 [blue]Saved to:[/blue] {file_path}")
-                    
-                    # Show a preview of the content
-                    preview = generated_content[:200] + "..." if len(generated_content) > 200 else generated_content
-                    self.console.print(f"📄 [yellow]Content Preview:[/yellow]")
-                    self.console.print(preview)
-                    
-                    # For web environments, provide a URL to view the content
-                    web_url = None
-                    if content_type.lower() == 'html':
-                        # Check if we're in a web environment
+                saved_paths = []
+                for location_info in save_locations:
+                    try:
+                        file_path = location_info['path']
+                        # Ensure directory exists
                         import os
-                        if os.environ.get('AI_ENVIRONMENT') == 'production' or 'PORT' in os.environ:
-                            # Production/web environment - provide web URL
-                            web_url = f"/view/{filename}"
-                            self.console.print(f"🌐 [green]Web URL:[/green] {web_url}")
-                        else:
-                            # Development environment - try to open local file
-                            try:
-                                import webbrowser
-                                full_path = os.path.abspath(file_path)
-                                webbrowser.open(f'file://{full_path}')
-                                self.console.print(f"🌐 [green]Opened in browser:[/green] {filename}")
-                            except Exception as browser_error:
-                                self.console.print(f"⚠️ [yellow]Could not open in browser:[/yellow] {browser_error}")
-                    
-                    return {
-                        "success": True,
-                        "type": "content_creation",
-                        "content_type": content_type,
-                        "content": generated_content,
-                        "filename": filename,
-                        "file_path": file_path,
-                        "web_url": web_url,
-                        "content_preview": preview,
-                        "full_content": generated_content,  # Include full content for display
-                        "message": f"AI created {content_type} content and saved to {filename}! Content preview: {preview}"
-                    }
-                    
-                except IOError as io_error:
-                    self.console.print(f"❌ [red]File save error:[/red] {io_error}")
-                    # Still return success with content, just mention file save failed
-                    return {
-                        "success": True,
-                        "type": "content_creation",
-                        "content_type": content_type,
-                        "content": generated_content,
-                        "content_preview": generated_content[:200] + "..." if len(generated_content) > 200 else generated_content,
-                        "message": f"AI created {content_type} content successfully! (File save failed: {io_error})",
-                        "warning": f"Could not save to file: {io_error}"
-                    }
+                        os.makedirs(os.path.dirname(file_path), exist_ok=True)
+                        
+                        with open(file_path, 'w', encoding='utf-8') as f:
+                            f.write(generated_content)
+                        
+                        saved_paths.append({
+                            'path': file_path,
+                            'type': location_info['type'],
+                            'description': location_info['description']
+                        })
+                        self.console.print(f"💾 [green]Saved to {location_info['type']}:[/green] {file_path}")
+                        
+                    except Exception as save_error:
+                        self.console.print(f"⚠️ [yellow]Could not save to {location_info['type']}:[/yellow] {save_error}")
+                
+                # Use the first successful save path as the primary path
+                primary_path = saved_paths[0]['path'] if saved_paths else f"generated_content/{filename}"
+                
+                self.console.print(f"🎨 [green]AI Created:[/green] {content_type.upper()} content")
+                
+                # Show a preview of the content
+                preview = generated_content[:200] + "..." if len(generated_content) > 200 else generated_content
+                self.console.print(f"📄 [yellow]Content Preview:[/yellow]")
+                self.console.print(preview)
+                
+                # AI-powered execution and opening
+                execution_result = self._ai_execute_generated_content(content_type, primary_path, user_input, generated_content)
+                
+                # For web environments, provide a URL to view the content
+                web_url = None
+                if content_type.lower() == 'html':
+                    # Check if we're in a web environment
+                    import os
+                    if os.environ.get('AI_ENVIRONMENT') == 'production' or 'PORT' in os.environ:
+                        # Production/web environment - provide web URL
+                        web_url = f"/view/{filename}"
+                        self.console.print(f"🌐 [green]Web URL:[/green] {web_url}")
+                    else:
+                        # Development environment - try to open local file
+                        try:
+                            import webbrowser
+                            full_path = os.path.abspath(primary_path)
+                            webbrowser.open(f'file://{full_path}')
+                            self.console.print(f"🌐 [green]Opened in browser:[/green] {filename}")
+                        except Exception as browser_error:
+                            self.console.print(f"⚠️ [yellow]Could not open in browser:[/yellow] {browser_error}")
+                
+                return {
+                    "success": True,
+                    "type": "content_creation",
+                    "content_type": content_type,
+                    "content": generated_content,
+                    "filename": filename,
+                    "file_path": primary_path,
+                    "saved_locations": saved_paths,
+                    "web_url": web_url,
+                    "execution_result": execution_result,
+                    "content_preview": preview,
+                    "full_content": generated_content,
+                    "message": f"AI created {content_type} content and saved to multiple locations! Content preview: {preview}"
+                }
             else:
                 return {"success": False, "error": "AI content generation failed"}
                 

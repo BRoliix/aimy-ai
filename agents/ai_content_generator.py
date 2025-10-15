@@ -145,7 +145,10 @@ class AIContentGenerator:
         For Python: Include all necessary imports and error handling
         For JavaScript: Make it modern and functional
         
-        Generate ONLY the {content_type} content, no explanations or markdown formatting.
+        CRITICAL: Return ONLY the raw {content_type} code that can be saved directly to a file.
+        DO NOT include markdown code blocks like ```python or ```html or ```.
+        DO NOT include any explanations, descriptions, or formatting.
+        Start immediately with the actual {content_type} code.
         """
         
         try:
@@ -156,11 +159,34 @@ class AIContentGenerator:
                 max_tokens=2000
             )
             
-            return response.choices[0].message.content.strip()
+            raw_content = response.choices[0].message.content.strip()
+            
+            # Clean up any markdown code blocks that might be included
+            cleaned_content = self._remove_markdown_blocks(raw_content)
+            
+            return cleaned_content
             
         except Exception as e:
             print(f"⚠️ AI generation error: {e}")
             return self._fallback_content_generation(request, content_type)
+    
+    def _remove_markdown_blocks(self, content: str) -> str:
+        """Remove markdown code blocks from AI-generated content"""
+        import re
+        
+        # Remove opening code blocks (```python, ```html, etc.)
+        content = re.sub(r'^```\w*\s*\n?', '', content, flags=re.MULTILINE)
+        
+        # Remove closing code blocks
+        content = re.sub(r'\n?```\s*$', '', content, flags=re.MULTILINE | re.DOTALL)
+        
+        # Remove any remaining triple backticks
+        content = re.sub(r'```', '', content)
+        
+        # Clean up any extra whitespace
+        content = content.strip()
+        
+        return content
     
     def _fallback_analysis(self, request: str) -> Dict[str, Any]:
         """

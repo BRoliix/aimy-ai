@@ -501,8 +501,25 @@ def chat():
                     full_content = result.get('full_content', '')
                     web_url = result.get('web_url', '')
                     file_path = result.get('file_path', '')
+                    saved_locations = result.get('saved_locations', [])
+                    execution_result = result.get('execution_result', {})
                     
                     response = f"✅ AI created {content_type.upper()} content successfully! Saved as: {filename}"
+                    
+                    # Show save locations
+                    if saved_locations:
+                        response += f"\n\n💾 Saved to {len(saved_locations)} locations:"
+                        for loc in saved_locations:
+                            response += f"\n  • {loc['type']}: {loc['path']}"
+                    
+                    # Show execution results
+                    if execution_result.get('attempted'):
+                        if execution_result.get('success'):
+                            response += f"\n\n🚀 {execution_result.get('message', 'Executed successfully')}"
+                            if execution_result.get('output'):
+                                response += f"\n📤 Output: {execution_result.get('output')}"
+                        else:
+                            response += f"\n\n⚠️ {execution_result.get('message', 'Execution failed')}"
                     
                     # If there's a web URL, set it as action_url for opening
                     if web_url:
@@ -517,9 +534,6 @@ def chat():
                         response += f"\n\n📖 Full Content:\n```{content_type}\n{full_content}\n```"
                     elif full_content:
                         response += f"\n\n📖 Full Content Available - {len(full_content)} characters"
-                    
-                    if file_path:
-                        response += f"\n\n📁 File Location: {file_path}"
                 else:
                     response = "❌ Content creation failed."
             elif result_type == 'system_control':
