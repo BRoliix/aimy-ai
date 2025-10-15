@@ -477,10 +477,15 @@ def chat():
             elif result_type == 'web_navigation' and result.get('url'):
                 action_url = result.get('url')
                 response = f"Opening {result.get('website', 'website')} for you!"
-            elif result_type in ['application_launch', 'app_launch'] and result.get('success'):
+            elif result_type in ['application_launch', 'app_launch', 'web_app_launch'] and result.get('success'):
                 # Handle successful app launches
                 app_name = result.get('app_name', 'application')
-                response = f"✅ Successfully launched {app_name}! The app should now be open on your device."
+                if result_type == 'web_app_launch':
+                    web_url = result.get('web_url', '')
+                    response = f"✅ Opened web version of {app_name}! Since we're in a web environment, I opened {web_url} for you."
+                    action_url = web_url
+                else:
+                    response = f"✅ Successfully launched {app_name}! The app should now be open on your device."
             elif result_type == 'time_information':
                 # Keep original time response
                 pass
@@ -493,12 +498,15 @@ def chat():
                     content_type = result.get('content_type', 'content')
                     filename = result.get('filename', 'generated_file')
                     content_preview = result.get('content_preview', '')
+                    file_path = result.get('file_path', '')
                     
-                    response = f"✅ AI created {content_type.upper()} content successfully!"
-                    if filename:
-                        response += f" Saved as: {filename}"
+                    response = f"✅ AI created {content_type.upper()} content successfully! Saved as: {filename}"
+                    
                     if content_preview:
-                        response += f"\n\n📄 Content Preview:\n{content_preview}"
+                        response += f"\n\n📄 Content Preview:\n```{content_type}\n{content_preview}\n```"
+                    
+                    if file_path:
+                        response += f"\n\n� File Location: {file_path}"
                 else:
                     response = "❌ Content creation failed."
             elif result_type == 'system_control':

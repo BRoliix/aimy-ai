@@ -713,32 +713,90 @@ class AgenticAICore:
             return {"success": False, "error": f"AI execution failed: {e}"}
     
     def _execute_pure_app_launch(self, execution: Dict[str, Any], user_input: str) -> Dict[str, Any]:
-        """Execute pure AI app launch - no hardcoded app names"""
+        """Execute pure AI app launch with production fallback"""
         try:
             app_name = execution.get('app_name', 'Calculator')
             command = execution.get('command', f"open -a '{app_name}'")
             
-            import subprocess
-            result = subprocess.run(command, shell=True, capture_output=True, text=True)
+            # Try system app launch first (works in development)
+            try:
+                import subprocess
+                result = subprocess.run(command, shell=True, capture_output=True, text=True)
+                
+                if result.returncode == 0:
+                    self.console.print(f"🚀 [green]AI Launched:[/green] {app_name}")
+                    return {
+                        "success": True,
+                        "type": "application_launch", 
+                        "app_name": app_name,
+                        "message": f"Successfully launched {app_name}!"
+                    }
+            except:
+                pass  # Fall through to web version
             
-            if result.returncode == 0:
-                self.console.print(f"🚀 [green]AI Launched:[/green] {app_name}")
+            # Production fallback: Use AI to determine web version
+            self.console.print(f"🌐 [yellow]Production Mode:[/yellow] Opening web version of {app_name}")
+            web_url = self._ai_determine_web_version(app_name, user_input)
+            
+            if web_url:
+                import webbrowser
+                webbrowser.open(web_url)
+                self.console.print(f"🚀 [green]AI Opened Web Version:[/green] {app_name} at {web_url}")
                 return {
                     "success": True,
-                    "type": "application_launch", 
+                    "type": "web_app_launch",
                     "app_name": app_name,
-                    "message": f"Successfully launched {app_name}!"
+                    "web_url": web_url,
+                    "message": f"Opened web version of {app_name}! Since we're in a web environment, I opened {web_url} instead."
                 }
             else:
-                self.console.print(f"❌ [red]Launch failed:[/red] {result.stderr.strip()}")
                 return {
                     "success": False,
-                    "error": f"Could not launch {app_name}: {result.stderr.strip()}",
-                    "message": f"Sorry, I couldn't open {app_name}. Make sure it's installed."
+                    "error": f"Could not launch {app_name} - not available in web environment",
+                    "message": f"Sorry, {app_name} isn't available in this web environment. Try asking me to create something instead!"
                 }
                 
         except Exception as e:
             return {"success": False, "error": f"App launch failed: {e}"}
+    
+    def _ai_determine_web_version(self, app_name: str, user_input: str) -> Optional[str]:
+        """Use AI to determine web version URL for an app"""
+        try:
+            if self.ai_generator and self.ai_generator.ai_available:
+                web_prompt = f"""
+                User wants to open: "{app_name}" (from request: "{user_input}")
+                
+                What is the official web URL for this application/service?
+                Respond with just the URL, nothing else.
+                
+                Examples:
+                - "Spotify" -> "https://open.spotify.com"
+                - "Netflix" -> "https://www.netflix.com"
+                - "YouTube" -> "https://www.youtube.com"
+                - "Calculator" -> "https://calculator.net"
+                - "Notes" -> "https://www.icloud.com"
+                - "Maps" -> "https://maps.google.com"
+                - "Music" -> "https://music.apple.com"
+                - "Photos" -> "https://photos.google.com"
+                - "Safari" -> "https://www.google.com"
+                - "Chrome" -> "https://www.google.com"
+                """
+                
+                response = self.ai_generator.client.chat.completions.create(
+                    model=self.ai_generator.model,
+                    messages=[{"role": "user", "content": web_prompt}],
+                    temperature=0.1,
+                    max_tokens=100
+                )
+                
+                url = response.choices[0].message.content.strip()
+                if url.startswith('http'):
+                    return url
+                    
+        except Exception as e:
+            self.console.print(f"⚠️ [yellow]AI web version lookup failed:[/yellow] {e}")
+        
+        return None
     
     def _execute_pure_web_open(self, execution: Dict[str, Any], user_input: str) -> Dict[str, Any]:
         """Execute pure AI web navigation"""
