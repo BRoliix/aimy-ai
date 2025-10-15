@@ -487,6 +487,20 @@ def chat():
             elif result_type in ['system_app_info', 'system_info', 'helpful_response']:
                 # For system requests that can't be executed in web environment
                 response = "I understand your request. While I can't directly control system functions in this web environment, I can help guide you!"
+            elif result_type == 'content_creation':
+                # Handle content creation with actual content display
+                if result.get('success'):
+                    content_type = result.get('content_type', 'content')
+                    filename = result.get('filename', 'generated_file')
+                    content_preview = result.get('content_preview', '')
+                    
+                    response = f"✅ AI created {content_type.upper()} content successfully!"
+                    if filename:
+                        response += f" Saved as: {filename}"
+                    if content_preview:
+                        response += f"\n\n📄 Content Preview:\n{content_preview}"
+                else:
+                    response = "❌ Content creation failed."
             elif result_type == 'system_control':
                 # Handle system control actions
                 if result.get('success'):

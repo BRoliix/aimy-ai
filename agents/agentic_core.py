@@ -50,35 +50,84 @@ class AgenticAICore:
     
     def process_request(self, user_input: str) -> Dict[str, Any]:
         """
-        Main AI processing pipeline - pure reasoning approach
+        PURE AI processing pipeline - 100% AI-driven with no hardcoded patterns
         """
         try:
             self.console.print(f"\n🧠 [bold blue]AI Thinking:[/bold blue] {user_input}")
             
-            # Step 1: Understand the language and context
-            understanding = self._understand_natural_language(user_input)
-            
-            # Step 2: Analyze what the user really wants
-            intent = self._analyze_user_intent(user_input, understanding)
-            
-            # Step 3: Generate a solution approach
-            solution = self._generate_dynamic_solution(intent, user_input)
-            
-            # Step 4: Execute the solution
-            result = self._execute_solution(solution, user_input)
-            
-            # Step 5: Learn from this interaction
-            self._learn_from_interaction(user_input, understanding, intent, solution, result)
-            
-            # Step 6: Update conversation context
-            self._update_context(user_input, result)
-            
-            return result
+            # Single AI call to handle everything
+            return self._pure_ai_processing(user_input)
             
         except Exception as e:
             error_msg = f"AI reasoning error: {e}"
             self.console.print(f"❌ [red]{error_msg}[/red]")
             return {"success": False, "error": error_msg, "type": "reasoning_failure"}
+    
+    def _pure_ai_processing(self, user_input: str) -> Dict[str, Any]:
+        """
+        PURE AI processing - no hardcoded logic, 100% OpenAI API driven
+        """
+        if not self.ai_generator or not self.ai_generator.ai_available:
+            return self._fallback_processing(user_input)
+        
+        try:
+            # Single comprehensive AI prompt to handle everything
+            master_prompt = f"""
+            USER REQUEST: "{user_input}"
+            
+            You are Aimy, an AI assistant that can execute real system commands on macOS.
+            
+            ANALYZE the request and return JSON with this exact structure:
+            {{
+                "analysis": {{
+                    "intent": "app_launch|web_navigation|content_creation|system_control|conversation|computation|information_seeking",
+                    "confidence": 0.0-1.0,
+                    "reasoning": "brief explanation of what user wants"
+                }},
+                "execution": {{
+                    "type": "app_launch|web_open|create_content|system_command|conversation|calculation|info_response",
+                    "command": "exact macOS command to run (if applicable)",
+                    "app_name": "exact app name for 'open -a' command (if app launch)",
+                    "web_url": "full URL to open (if web navigation)",
+                    "content_type": "html|python|javascript|css|text (if creation)",
+                    "system_action": "volume_up|volume_down|brightness_up|brightness_down|time|date (if system)",
+                    "response_text": "AI response text (if conversation)"
+                }},
+                "success_message": "message to show user when complete"
+            }}
+            
+            EXAMPLES:
+            - "open Spotify" → {{"analysis": {{"intent": "app_launch"}}, "execution": {{"type": "app_launch", "app_name": "Spotify", "command": "open -a 'Spotify'"}}}}
+            - "open YouTube" → {{"analysis": {{"intent": "web_navigation"}}, "execution": {{"type": "web_open", "web_url": "https://www.youtube.com"}}}}
+            - "create calculator" → {{"analysis": {{"intent": "content_creation"}}, "execution": {{"type": "create_content", "content_type": "html"}}}}
+            - "turn up volume" → {{"analysis": {{"intent": "system_control"}}, "execution": {{"type": "system_command", "system_action": "volume_up", "command": "osascript -e 'tell application \\"System Events\\" to key code 126'"}}}}
+            - "what time is it" → {{"analysis": {{"intent": "information_seeking"}}, "execution": {{"type": "info_response", "system_action": "time"}}}}
+            - "hello" → {{"analysis": {{"intent": "conversation"}}, "execution": {{"type": "conversation", "response_text": "Hello! I'm Aimy, your AI assistant. What can I help you with?"}}}}
+            
+            BE SMART about app names - use exact macOS application names for the open command.
+            """
+            
+            response = self.ai_generator.client.chat.completions.create(
+                model=self.ai_generator.model,
+                messages=[{"role": "user", "content": master_prompt}],
+                temperature=0.1,
+                max_tokens=500
+            )
+            
+            import json
+            ai_decision = json.loads(response.choices[0].message.content.strip())
+            
+            # Log AI decision
+            intent = ai_decision['analysis']['intent']
+            exec_type = ai_decision['execution']['type']
+            self.console.print(f"🤖 [cyan]AI Analysis:[/cyan] {intent} → {exec_type}")
+            
+            # Execute the AI's decision
+            return self._execute_ai_decision(ai_decision, user_input)
+            
+        except Exception as e:
+            self.console.print(f"⚠️ [yellow]AI processing failed:[/yellow] {e}")
+            return self._fallback_processing(user_input)
     
     def _understand_natural_language(self, text: str) -> Dict[str, Any]:
         """
@@ -626,6 +675,279 @@ class AgenticAICore:
             self.console.print(f"❌ [red]AI app determination failed:[/red] {e}")
         
         return None
+    
+    def _execute_ai_decision(self, ai_decision: Dict[str, Any], user_input: str) -> Dict[str, Any]:
+        """
+        Execute the pure AI decision with no hardcoded routing
+        """
+        try:
+            execution = ai_decision.get('execution', {})
+            exec_type = execution.get('type', 'conversation')
+            
+            # Check permissions for system operations
+            if exec_type in ['app_launch', 'system_command'] and not self._check_system_permissions(user_input):
+                return {
+                    "success": False,
+                    "type": "permission_denied",
+                    "message": "System operations not permitted in this environment."
+                }
+            
+            if exec_type == 'app_launch':
+                return self._execute_pure_app_launch(execution, user_input)
+            elif exec_type == 'web_open':
+                return self._execute_pure_web_open(execution, user_input)
+            elif exec_type == 'create_content':
+                return self._execute_pure_content_creation(execution, user_input)
+            elif exec_type == 'system_command':
+                return self._execute_pure_system_command(execution, user_input)
+            elif exec_type == 'info_response':
+                return self._execute_pure_info_response(execution, user_input)
+            elif exec_type == 'conversation':
+                return self._execute_pure_conversation(execution, user_input)
+            elif exec_type == 'calculation':
+                return self._execute_pure_calculation(execution, user_input)
+            else:
+                return self._execute_pure_conversation(execution, user_input)
+                
+        except Exception as e:
+            return {"success": False, "error": f"AI execution failed: {e}"}
+    
+    def _execute_pure_app_launch(self, execution: Dict[str, Any], user_input: str) -> Dict[str, Any]:
+        """Execute pure AI app launch - no hardcoded app names"""
+        try:
+            app_name = execution.get('app_name', 'Calculator')
+            command = execution.get('command', f"open -a '{app_name}'")
+            
+            import subprocess
+            result = subprocess.run(command, shell=True, capture_output=True, text=True)
+            
+            if result.returncode == 0:
+                self.console.print(f"🚀 [green]AI Launched:[/green] {app_name}")
+                return {
+                    "success": True,
+                    "type": "application_launch", 
+                    "app_name": app_name,
+                    "message": f"Successfully launched {app_name}!"
+                }
+            else:
+                self.console.print(f"❌ [red]Launch failed:[/red] {result.stderr.strip()}")
+                return {
+                    "success": False,
+                    "error": f"Could not launch {app_name}: {result.stderr.strip()}",
+                    "message": f"Sorry, I couldn't open {app_name}. Make sure it's installed."
+                }
+                
+        except Exception as e:
+            return {"success": False, "error": f"App launch failed: {e}"}
+    
+    def _execute_pure_web_open(self, execution: Dict[str, Any], user_input: str) -> Dict[str, Any]:
+        """Execute pure AI web navigation"""
+        try:
+            web_url = execution.get('web_url', 'https://www.google.com')
+            
+            webbrowser.open(web_url)
+            self.console.print(f"🌐 [green]AI Opened:[/green] {web_url}")
+            
+            return {
+                "success": True,
+                "type": "web_navigation",
+                "url": web_url,
+                "message": f"Opened {web_url}"
+            }
+                
+        except Exception as e:
+            return {"success": False, "error": f"Web navigation failed: {e}"}
+    
+    def _execute_pure_content_creation(self, execution: Dict[str, Any], user_input: str) -> Dict[str, Any]:
+        """Execute pure AI content creation"""
+        try:
+            content_type = execution.get('content_type', 'html')
+            
+            # Use AI to generate the content
+            ai_result = self.ai_generator.generate_content(user_input, content_type)
+            
+            if ai_result.get("success", False):
+                generated_content = ai_result.get("content", "")
+                filename = ai_result.get("filename", f"ai_generated_{content_type}")
+                
+                # Save the content to a file
+                import os
+                output_dir = "generated_content"
+                if not os.path.exists(output_dir):
+                    os.makedirs(output_dir)
+                
+                file_path = os.path.join(output_dir, filename)
+                
+                try:
+                    with open(file_path, 'w', encoding='utf-8') as f:
+                        f.write(generated_content)
+                    
+                    self.console.print(f"🎨 [green]AI Created:[/green] {content_type.upper()} content")
+                    self.console.print(f"📁 [blue]Saved to:[/blue] {file_path}")
+                    
+                    # Show a preview of the content
+                    preview = generated_content[:200] + "..." if len(generated_content) > 200 else generated_content
+                    self.console.print(f"📄 [yellow]Content Preview:[/yellow]")
+                    self.console.print(preview)
+                    
+                    # If it's HTML, also try to open it in browser
+                    if content_type.lower() == 'html':
+                        try:
+                            import webbrowser
+                            full_path = os.path.abspath(file_path)
+                            webbrowser.open(f'file://{full_path}')
+                            self.console.print(f"🌐 [green]Opened in browser:[/green] {filename}")
+                        except Exception as browser_error:
+                            self.console.print(f"⚠️ [yellow]Could not open in browser:[/yellow] {browser_error}")
+                    
+                    return {
+                        "success": True,
+                        "type": "content_creation",
+                        "content_type": content_type,
+                        "content": generated_content,
+                        "filename": filename,
+                        "file_path": file_path,
+                        "content_preview": preview,
+                        "message": f"AI created {content_type} content and saved to {filename}! Content preview: {preview}"
+                    }
+                    
+                except IOError as io_error:
+                    self.console.print(f"❌ [red]File save error:[/red] {io_error}")
+                    # Still return success with content, just mention file save failed
+                    return {
+                        "success": True,
+                        "type": "content_creation",
+                        "content_type": content_type,
+                        "content": generated_content,
+                        "content_preview": generated_content[:200] + "..." if len(generated_content) > 200 else generated_content,
+                        "message": f"AI created {content_type} content successfully! (File save failed: {io_error})",
+                        "warning": f"Could not save to file: {io_error}"
+                    }
+            else:
+                return {"success": False, "error": "AI content generation failed"}
+                
+        except Exception as e:
+            return {"success": False, "error": f"Content creation failed: {e}"}
+    
+    def _execute_pure_system_command(self, execution: Dict[str, Any], user_input: str) -> Dict[str, Any]:
+        """Execute pure AI system command"""
+        try:
+            system_action = execution.get('system_action', '')
+            command = execution.get('command', '')
+            
+            if command:
+                import subprocess
+                result = subprocess.run(command, shell=True, capture_output=True, text=True)
+                
+                if result.returncode == 0:
+                    self.console.print(f"🎛️ [green]AI System Command:[/green] {system_action}")
+                    return {
+                        "success": True,
+                        "type": "system_control",
+                        "action": system_action,
+                        "message": f"System {system_action} executed successfully!"
+                    }
+                else:
+                    return {
+                        "success": False,
+                        "error": f"System command failed: {result.stderr.strip()}",
+                        "message": f"Could not execute {system_action}"
+                    }
+            else:
+                return {"success": False, "error": "No system command provided"}
+                
+        except Exception as e:
+            return {"success": False, "error": f"System command failed: {e}"}
+    
+    def _execute_pure_info_response(self, execution: Dict[str, Any], user_input: str) -> Dict[str, Any]:
+        """Execute pure AI info response"""
+        try:
+            system_action = execution.get('system_action', 'time')
+            
+            if system_action == 'time' or system_action == 'date':
+                now = datetime.now()
+                time_str = now.strftime("%I:%M:%S %p")
+                date_str = now.strftime("%A, %B %d, %Y")
+                
+                self.console.print(f"🕐 [green]Current Time:[/green] {time_str}")
+                self.console.print(f"📅 [green]Date:[/green] {date_str}")
+                
+                return {
+                    "success": True,
+                    "type": "time_information",
+                    "time": time_str,
+                    "date": date_str,
+                    "message": f"Current time is {time_str} on {date_str}"
+                }
+            else:
+                return {
+                    "success": True,
+                    "type": "info_response", 
+                    "message": "Information retrieved successfully!"
+                }
+                
+        except Exception as e:
+            return {"success": False, "error": f"Info response failed: {e}"}
+    
+    def _execute_pure_conversation(self, execution: Dict[str, Any], user_input: str) -> Dict[str, Any]:
+        """Execute pure AI conversation"""
+        try:
+            response_text = execution.get('response_text', '')
+            
+            if not response_text:
+                # Generate AI response
+                response_text = self._generate_ai_conversational_response(user_input)
+            
+            self.console.print(f"💬 [green]AI Response:[/green] {response_text}")
+            
+            return {
+                "success": True,
+                "type": "conversation",
+                "response": response_text,
+                "message": response_text
+            }
+                
+        except Exception as e:
+            return {"success": False, "error": f"Conversation failed: {e}"}
+    
+    def _execute_pure_calculation(self, execution: Dict[str, Any], user_input: str) -> Dict[str, Any]:
+        """Execute pure AI calculation"""
+        try:
+            # Use AI to solve the math
+            if self.ai_generator and self.ai_generator.ai_available:
+                calc_prompt = f"""
+                Solve this mathematical expression: "{user_input}"
+                
+                If it contains math, respond with just the answer number.
+                If it's not math, respond with "NOT_MATH".
+                
+                Examples:
+                - "5 + 3" -> "8"
+                - "what is 10 * 2" -> "20"
+                """
+                
+                response = self.ai_generator.client.chat.completions.create(
+                    model=self.ai_generator.model,
+                    messages=[{"role": "user", "content": calc_prompt}],
+                    temperature=0.0,
+                    max_tokens=50
+                )
+                
+                result = response.choices[0].message.content.strip()
+                
+                if result != "NOT_MATH":
+                    self.console.print(f"🧮 [green]AI Calculation:[/green] {user_input} = {result}")
+                    return {
+                        "success": True,
+                        "type": "computation",
+                        "result": result,
+                        "message": f"Calculated: {user_input} = {result}"
+                    }
+            
+            return self._execute_pure_conversation(execution, user_input)
+            
+        except Exception as e:
+            return {"success": False, "error": f"Calculation failed: {e}"}
     
     def _execute_ai_system_action(self, solution: Dict[str, Any], text: str) -> Dict[str, Any]:
         """AI-driven system command execution with real app control"""
