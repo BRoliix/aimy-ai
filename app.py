@@ -367,6 +367,13 @@ WEB_TEMPLATE = """
                 if (data.success) {
                     addMessage(data.response);
                     speakResponse(data.response);
+                    
+                    // Execute action if provided
+                    if (data.execute_action && data.action_url) {
+                        setTimeout(() => {
+                            window.open(data.action_url, '_blank');
+                        }, 1000); // Small delay to let user hear the response first
+                    }
                 } else {
                     const errorMsg = 'Sorry, I encountered an error processing your request. Please try again.';
                     addMessage(errorMsg);
@@ -454,22 +461,54 @@ def chat():
             })
         
         # Process with Aimy
-        result = aimy.process_input(user_message)
+        result = aimy.process_request(user_message)
         
-        # Extract response message
+        # Extract response message and handle actions
         if isinstance(result, dict):
-            if result.get('success', False):
-                response = result.get('message', 'Task completed successfully!')
-            else:
-                response = result.get('message', 'Sorry, I couldn\'t process that request.')
+            response = result.get('message', result.get('response', 'Task completed successfully!'))
+            
+            # Handle different result types with actual execution
+            result_type = result.get('type', 'unknown')
+            action_url = None
+            
+            if result_type == 'web_redirect' and result.get('url'):
+                action_url = result.get('url')
+                response = f"Opening {result.get('url')} for you!"
+            elif result_type == 'web_navigation' and result.get('url'):
+                action_url = result.get('url')
+                response = f"Opening {result.get('website', 'website')} for you!"
+            elif result_type in ['application_launch', 'app_launch'] and result.get('success'):
+                # Handle successful app launches
+                app_name = result.get('app_name', 'application')
+                response = f"✅ Successfully launched {app_name}! The app should now be open on your device."
+            elif result_type == 'time_information':
+                # Keep original time response
+                pass
+            elif result_type in ['system_app_info', 'system_info', 'helpful_response']:
+                # For system requests that can't be executed in web environment
+                response = "I understand your request. While I can't directly control system functions in this web environment, I can help guide you!"
+            elif result_type == 'system_control':
+                # Handle system control actions
+                if result.get('success'):
+                    setting = result.get('setting', 'system')
+                    action = result.get('action', 'action')
+                    response = f"✅ Successfully executed {setting} {action} on your device."
+                else:
+                    response = "❌ System control action failed. Please ensure proper permissions are set."
+            
+            return jsonify({
+                'success': True,
+                'response': response,
+                'result': result,
+                'action_url': action_url,
+                'execute_action': action_url is not None
+            })
         else:
-            response = str(result)
-        
-        return jsonify({
-            'success': True,
-            'response': response,
-            'result': result
-        })
+            return jsonify({
+                'success': True,
+                'response': str(result) if result else "Ready to help!",
+                'result': result
+            })
         
     except Exception as e:
         return jsonify({

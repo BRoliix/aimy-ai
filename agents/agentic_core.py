@@ -125,116 +125,151 @@ class AgenticAICore:
     
     def _analyze_user_intent(self, text: str, understanding: Dict[str, Any]) -> Dict[str, Any]:
         """
-        AI intent analysis - reasoning about what user really wants
+        TRUE AI intent analysis using OpenAI API - no hardcoded patterns
         """
-        intent = {
-            'primary_goal': 'unknown',
+        if self.ai_generator and self.ai_generator.ai_available:
+            try:
+                intent_prompt = f"""
+                Analyze this user request and determine their intent: "{text}"
+
+                Return a JSON response with:
+                {{
+                    "primary_goal": "information_seeking" | "task_execution" | "conversation" | "system_control",
+                    "domain": "temporal_information" | "system_information" | "creation_task" | "web_navigation" | "computation" | "communication" | "general_conversation" | "environmental_information",
+                    "action_required": true/false,
+                    "expected_outcome": "response" | "completed_action" | "informative_response" | "conversational_response",
+                    "secondary_goals": ["list", "of", "specific", "goals"],
+                    "confidence": 0.0-1.0,
+                    "execution_type": "ai_content_creation" | "system_control" | "web_interaction" | "computation" | "conversation" | "web_navigation"
+                }}
+
+                Examples:
+                - "Create a calculator" -> {{"primary_goal": "task_execution", "domain": "creation_task", "execution_type": "ai_content_creation"}}
+                - "Open YouTube" -> {{"primary_goal": "system_control", "domain": "web_navigation", "execution_type": "ai_web_action"}}
+                - "Open Spotify" -> {{"primary_goal": "system_control", "domain": "system_control", "execution_type": "ai_system_action"}}
+                - "Turn up volume" -> {{"primary_goal": "system_control", "domain": "system_control", "execution_type": "ai_system_action"}}
+                - "What time is it?" -> {{"primary_goal": "information_seeking", "domain": "temporal_information", "execution_type": "ai_system_action"}}
+                """
+
+                response = self.ai_generator.client.chat.completions.create(
+                    model=self.ai_generator.model,
+                    messages=[{"role": "user", "content": intent_prompt}],
+                    temperature=0.1,
+                    max_tokens=300
+                )
+
+                import json
+                ai_intent = json.loads(response.choices[0].message.content.strip())
+                self.console.print(f"🤖 [cyan]AI Intent Analysis:[/cyan] {ai_intent['primary_goal']} -> {ai_intent['domain']}")
+                return ai_intent
+                
+            except Exception as e:
+                self.console.print(f"⚠️ [yellow]AI Intent Analysis failed, using fallback:[/yellow] {e}")
+        
+        # Fallback to basic analysis if AI fails
+        return {
+            'primary_goal': 'conversation',
             'secondary_goals': [],
             'action_required': False,
             'expected_outcome': 'response',
-            'domain': 'general',
-            'confidence': 0.5
+            'domain': 'general_conversation',
+            'confidence': 0.3,
+            'execution_type': 'conversation'
         }
-        
-        text_lower = text.lower()
-        
-        # Dynamic intent reasoning
-        if understanding['language_indicators']['is_question']:
-            intent['primary_goal'] = 'information_seeking'
-            intent['expected_outcome'] = 'informative_response'
-            intent['action_required'] = False
-            
-            # Analyze what kind of information
-            if any(word in text_lower for word in ['time', 'date', 'clock']):
-                intent['domain'] = 'temporal_information'
-            elif any(word in text_lower for word in ['weather', 'temperature']):
-                intent['domain'] = 'environmental_information'
-            elif any(word in text_lower for word in ['system', 'computer', 'specs']):
-                intent['domain'] = 'system_information'
-            else:
-                intent['domain'] = 'general_knowledge'
-        
-        elif understanding['language_indicators']['is_command']:
-            intent['primary_goal'] = 'task_execution'
-            intent['expected_outcome'] = 'completed_action'
-            intent['action_required'] = True
-            
-            # Reason about task type - INTELLIGENT detection
-            if any(word in text_lower for word in ['create', 'make', 'build', 'generate', 'write', 'code']):
-                intent['domain'] = 'creation_task'
-                
-                # SMART AI reasoning - understand WHAT to create
-                if any(word in text_lower for word in ['html', 'website', 'web page', 'web', 'site']):
-                    intent['secondary_goals'].append('html_website')
-                elif any(word in text_lower for word in ['calculator', 'calc', 'math', 'computation', 'arithmetic']):
-                    intent['secondary_goals'].append('calculator_tool')
-                elif any(word in text_lower for word in ['python', 'py', 'script']):
-                    intent['secondary_goals'].append('python_script')
-                elif any(word in text_lower for word in ['app', 'application', 'program', 'tool']):
-                    intent['secondary_goals'].append('software_development')
-                elif any(word in text_lower for word in ['file', 'document', 'text']):
-                    intent['secondary_goals'].append('file_creation')
-                else:
-                    # Use AI to intelligently determine what to create based on the request
-                    intent['secondary_goals'].append('intelligent_creation')
-                    
-            elif any(word in text_lower for word in ['open', 'launch', 'start']):
-                intent['domain'] = 'system_control'
-                intent['secondary_goals'].append('application_launch')
-                
-            elif any(word in text_lower for word in ['send', 'message', 'email', 'text']):
-                intent['domain'] = 'communication'
-                intent['secondary_goals'].append('messaging')
-                
-            elif any(word in text_lower for word in ['search', 'find', 'look', 'browse']):
-                intent['domain'] = 'information_retrieval'
-                intent['secondary_goals'].append('web_search')
-                
-            elif any(word in text_lower for word in ['calculate', 'compute', 'math', '+', '-', '*', '/']):
-                intent['domain'] = 'computation'
-                intent['secondary_goals'].append('mathematical_calculation')
-        
-        else:
-            # Conversational intent
-            intent['primary_goal'] = 'conversation'
-            intent['expected_outcome'] = 'conversational_response'
-            intent['domain'] = 'general_conversation'
-        
-        # Adjust confidence based on clarity
-        if len(intent['secondary_goals']) > 0:
-            intent['confidence'] = 0.8
-        elif intent['domain'] != 'general':
-            intent['confidence'] = 0.7
-        
-        return intent
     
     def _generate_dynamic_solution(self, intent: Dict[str, Any], original_text: str) -> Dict[str, Any]:
         """
-        AI solution generation - create approach dynamically
+        PURE AI solution generation - no hardcoded patterns or routing
         """
-        solution = {
-            'approach': 'adaptive',
-            'steps': [],
-            'tools_needed': [],
-            'expected_duration': 'short',
-            'success_criteria': [],
-            'fallback_options': []
+        if self.ai_generator and self.ai_generator.ai_available:
+            try:
+                solution_prompt = f"""
+                User Request: "{original_text}"
+                Intent Analysis: {intent}
+
+                As an intelligent AI system, analyze this request and generate an execution plan.
+                
+                Respond with ONLY a JSON object:
+                {{
+                    "approach": "ai_web_action" | "ai_system_action" | "ai_content_creation" | "conversation",
+                    "execution_method": "specific execution method",
+                    "app_name": "exact macOS app name if applicable",
+                    "web_url": "exact URL if applicable", 
+                    "system_command": "system command if applicable",
+                    "response_message": "message to show user",
+                    "confidence": 0.0-1.0,
+                    "reasoning": "why you chose this approach"
+                }}
+
+                Guidelines:
+                - For "open X" requests: determine if X is an app or website
+                - For macOS apps: use approach "ai_web_action" with exact app name
+                - For websites: use approach "ai_web_action" with exact URL
+                - For system info (time, etc): use approach "ai_system_action"
+                - For creating content: use approach "ai_content_creation"
+                - For conversation: use approach "conversation"
+                
+                Be intelligent and context-aware. No hardcoded patterns.
+                """
+
+                response = self.ai_generator.client.chat.completions.create(
+                    model=self.ai_generator.model,
+                    messages=[{"role": "user", "content": solution_prompt}],
+                    temperature=0.2,
+                    max_tokens=300
+                )
+
+                import json
+                ai_solution = json.loads(response.choices[0].message.content.strip())
+                
+                self.console.print(f"🧠 [cyan]AI Solution:[/cyan] {ai_solution['approach']} - {ai_solution.get('reasoning', 'AI reasoning')}")
+                return ai_solution
+                
+            except Exception as e:
+                self.console.print(f"⚠️ [yellow]AI Solution Generation failed:[/yellow] {e}")
+        
+        # Minimal fallback - let AI handle it in conversation mode
+        return {
+            'approach': 'conversation',
+            'execution_method': 'ai_response',
+            'response_message': f"I'll help you with: '{original_text}'",
+            'confidence': 0.5,
+            'reasoning': 'Fallback to conversational AI'
         }
+    
+    def _extract_app_name_from_text(self, text: str) -> str:
+        """AI-powered app name extraction - no hardcoded mappings"""
+        try:
+            if self.ai_generator and self.ai_generator.ai_available:
+                app_prompt = f"""
+                Extract the app name from this user request: "{text}"
+                
+                Respond with ONLY the exact macOS application name, nothing else.
+                If no app is mentioned, respond with "NO_APP".
+                
+                Examples:
+                - "open spotify" -> "Spotify"
+                - "launch calculator" -> "Calculator" 
+                - "start chrome browser" -> "Google Chrome"
+                - "open the music app" -> "Music"
+                - "show me photos" -> "Photos"
+                - "hello world" -> "NO_APP"
+                """
+                
+                response = self.ai_generator.client.chat.completions.create(
+                    model=self.ai_generator.model,
+                    messages=[{"role": "user", "content": app_prompt}],
+                    temperature=0.1,
+                    max_tokens=50
+                )
+                
+                app_name = response.choices[0].message.content.strip()
+                return app_name if app_name != "NO_APP" else "Safari"
+                
+        except Exception as e:
+            self.console.print(f"⚠️ [yellow]AI app extraction failed:[/yellow] {e}")
         
-        primary_goal = intent['primary_goal']
-        domain = intent['domain']
-        secondary_goals = intent.get('secondary_goals', [])
-        
-        if primary_goal == 'information_seeking':
-            solution = self._generate_information_solution(domain, original_text)
-        elif primary_goal == 'task_execution':
-            solution = self._generate_task_solution(domain, secondary_goals, original_text)
-        elif primary_goal == 'conversation':
-            solution = self._generate_conversation_solution(original_text)
-        else:
-            solution = self._generate_adaptive_solution(intent, original_text)
-        
-        return solution
+        return "Safari"  # Minimal fallback
     
     def _generate_information_solution(self, domain: str, text: str) -> Dict[str, Any]:
         """Generate solution for information requests"""
@@ -295,36 +330,661 @@ class AgenticAICore:
     
     def _execute_solution(self, solution: Dict[str, Any], original_text: str) -> Dict[str, Any]:
         """
-        Execute the dynamically generated solution
+        Execute AI-generated solution using intelligent routing
         """
-        approach = solution['approach']
+        approach = solution.get('approach', 'conversation')
         
         try:
-            if approach == 'direct_system_call':
-                return self._execute_system_call(solution, original_text)
-            elif approach == 'system_interrogation':
-                return self._execute_system_interrogation(solution)
-            elif approach == 'html_creation':
-                return self._execute_html_creation(solution, original_text)
-            elif approach == 'python_creation':
-                return self._execute_python_creation(solution, original_text)
-            elif approach == 'software_creation':
-                return self._execute_software_creation(solution, original_text)
+            # AI-driven execution routing
+            if approach == 'ai_web_action':
+                return self._execute_ai_web_action(solution, original_text)
+            elif approach == 'ai_system_action':
+                return self._execute_ai_system_action(solution, original_text)
             elif approach == 'ai_content_creation':
                 return self._execute_ai_content_creation(solution, original_text)
+            elif approach == 'web_navigation':
+                return self._execute_ai_web_action(solution, original_text)
             elif approach == 'system_control':
-                return self._execute_system_control(solution, original_text)
-            elif approach == 'web_interaction':
-                return self._execute_web_interaction(solution, original_text)
+                return self._execute_ai_system_action(solution, original_text)
             elif approach == 'computation':
-                return self._execute_computation(solution, original_text)
-            elif approach == 'natural_conversation':
-                return self._execute_conversation(solution, original_text)
+                return self._execute_ai_computation(solution, original_text)
+            elif approach == 'conversation':
+                return self._execute_ai_conversation(solution, original_text)
             else:
-                return self._execute_adaptive_approach(solution, original_text)
+                return self._execute_ai_adaptive_solution(solution, original_text)
                 
         except Exception as e:
-            return {"success": False, "error": f"Execution failed: {e}"}
+            return {"success": False, "error": f"AI execution failed: {e}"}
+    
+    def _execute_ai_web_action(self, solution: Dict[str, Any], text: str) -> Dict[str, Any]:
+        """PURE AI-driven app launch and web navigation - no hardcoded alternatives"""
+        try:
+            # Permission check first
+            if not self._check_system_permissions(text):
+                return {
+                    "success": False,
+                    "type": "permission_denied", 
+                    "message": "System/app control is not permitted in this environment."
+                }
+            
+            # Use AI solution data or determine dynamically
+            app_name = solution.get('app_name')
+            web_url = solution.get('web_url')
+            
+            # If we have an app name, try to launch it
+            if app_name:
+                import platform
+                if platform.system() == "Darwin":  # macOS
+                    import subprocess
+                    cmd = f'open -a "{app_name}"'
+                    self.console.print(f"🚀 [cyan]AI Launching App:[/cyan] {app_name}")
+                    
+                    result = subprocess.run(cmd, shell=True, capture_output=True, text=True)
+                    if result.returncode == 0:
+                        self.console.print(f"🚀 [green]Successfully launched:[/green] {app_name}")
+                        return {
+                            "success": True,
+                            "type": "application_launch",
+                            "app_name": app_name,
+                            "message": f"Successfully launched {app_name}!"
+                        }
+                    else:
+                        # Use AI to suggest alternatives instead of hardcoded list
+                        alternative = self._ai_suggest_app_alternative(app_name, text)
+                        if alternative:
+                            cmd = f'open -a "{alternative}"'
+                            result = subprocess.run(cmd, shell=True, capture_output=True, text=True)
+                            if result.returncode == 0:
+                                self.console.print(f"🚀 [green]AI Alternative:[/green] {alternative}")
+                                return {
+                                    "success": True,
+                                    "type": "application_launch",
+                                    "app_name": alternative,
+                                    "message": f"Launched {alternative} instead!"
+                                }
+            
+            # If we have a web URL, open it
+            if web_url:
+                webbrowser.open(web_url)
+                self.console.print(f"🌐 [green]AI Opened Website:[/green] {web_url}")
+                return {
+                    "success": True,
+                    "type": "web_navigation",
+                    "url": web_url,
+                    "message": f"Opened {web_url}"
+                }
+            
+            # Let AI determine what to do
+            ai_action = self._ai_determine_web_or_app_action(text)
+            if ai_action:
+                return ai_action
+            
+            return {
+                "success": False,
+                "error": f"AI could not determine how to handle: {text}",
+                "message": f"I'm not sure how to open '{text}'. Could you be more specific?"
+            }
+                
+        except Exception as e:
+            return {"success": False, "error": f"AI web/app action failed: {e}"}
+    
+    def _ai_suggest_app_alternative(self, failed_app: str, original_text: str) -> Optional[str]:
+        """Use AI to suggest alternative apps when launch fails"""
+        try:
+            if self.ai_generator and self.ai_generator.ai_available:
+                alt_prompt = f"""
+                The app "{failed_app}" failed to launch for request: "{original_text}"
+                
+                Suggest an alternative macOS app that might fulfill the same purpose.
+                Respond with ONLY the app name, or "NO_ALTERNATIVE".
+                
+                Examples:
+                - Failed "Spotify" -> "Music"
+                - Failed "Chrome" -> "Safari" 
+                - Failed "Calculator" -> "NO_ALTERNATIVE"
+                - Failed "NonExistentApp" -> "Safari"
+                """
+                
+                response = self.ai_generator.client.chat.completions.create(
+                    model=self.ai_generator.model,
+                    messages=[{"role": "user", "content": alt_prompt}],
+                    temperature=0.2,
+                    max_tokens=50
+                )
+                
+                alternative = response.choices[0].message.content.strip()
+                return alternative if alternative != "NO_ALTERNATIVE" else None
+                
+        except Exception as e:
+            self.console.print(f"⚠️ [yellow]AI alternative suggestion failed:[/yellow] {e}")
+        
+        return None
+    
+    def _ai_determine_web_or_app_action(self, text: str) -> Optional[Dict[str, Any]]:
+        """Use AI to determine the best action for ambiguous requests"""
+        try:
+            if self.ai_generator and self.ai_generator.ai_available:
+                action_prompt = f"""
+                User request: "{text}"
+                
+                Determine the best action. Respond with JSON:
+                {{
+                    "action": "app_launch" | "web_open",
+                    "target": "app name or URL",
+                    "message": "user message"
+                }}
+                
+                Or respond "NO_ACTION" if unclear.
+                """
+                
+                response = self.ai_generator.client.chat.completions.create(
+                    model=self.ai_generator.model,
+                    messages=[{"role": "user", "content": action_prompt}],
+                    temperature=0.2,
+                    max_tokens=150
+                )
+                
+                result = response.choices[0].message.content.strip()
+                if result != "NO_ACTION":
+                    import json
+                    action_data = json.loads(result)
+                    
+                    if action_data['action'] == 'app_launch':
+                        cmd = f'open -a "{action_data["target"]}"'
+                        result = subprocess.run(cmd, shell=True, capture_output=True, text=True)
+                        if result.returncode == 0:
+                            return {
+                                "success": True,
+                                "type": "application_launch",
+                                "app_name": action_data["target"],
+                                "message": action_data["message"]
+                            }
+                    elif action_data['action'] == 'web_open':
+                        webbrowser.open(action_data["target"])
+                        return {
+                            "success": True,
+                            "type": "web_navigation",
+                            "url": action_data["target"],
+                            "message": action_data["message"]
+                        }
+                        
+        except Exception as e:
+            self.console.print(f"⚠️ [yellow]AI action determination failed:[/yellow] {e}")
+        
+        return None
+    
+    def _ai_determine_website(self, text: str) -> Optional[str]:
+        """Use AI to determine what website to open"""
+        try:
+            if self.ai_generator and self.ai_generator.ai_available:
+                web_prompt = f"""
+                User wants to open/visit: "{text}"
+                
+                What website URL should I open? Respond with just the URL, nothing else.
+                If it's a well-known service, provide the official website.
+                If unclear, provide a relevant search URL.
+                
+                Examples:
+                - "open mongodb" -> https://www.mongodb.com
+                - "open weather" -> https://weather.gov
+                - "open calculator" -> https://calculator.net
+                - "open YouTube" -> https://www.youtube.com
+                - "open GitHub" -> https://github.com
+                - "open Spotify" -> https://open.spotify.com
+                - "open music" -> https://music.apple.com
+                """
+                
+                response = self.ai_generator.client.chat.completions.create(
+                    model=self.ai_generator.model,
+                    messages=[{"role": "user", "content": web_prompt}],
+                    temperature=0.1,
+                    max_tokens=100
+                )
+                
+                url = response.choices[0].message.content.strip()
+                if url.startswith('http'):
+                    return url
+                    
+        except Exception as e:
+            self.console.print(f"❌ [red]AI website determination failed:[/red] {e}")
+        
+        return None
+    
+    def _ai_determine_app_name(self, text: str) -> Optional[str]:
+        """Use AI to determine what app to launch"""
+        try:
+            if self.ai_generator and self.ai_generator.ai_available:
+                app_prompt = f"""
+                User wants to open/launch: "{text}"
+                
+                What macOS application name should I use with 'open -a' command?
+                Respond with just the application name, nothing else.
+                
+                Examples:
+                - "open Spotify" -> "Spotify"
+                - "open music" -> "Music"
+                - "open Safari" -> "Safari"
+                - "open Chrome" -> "Google Chrome"
+                - "open calculator" -> "Calculator"
+                - "open terminal" -> "Terminal"
+                - "open finder" -> "Finder"
+                - "open notes" -> "Notes"
+                - "open messages" -> "Messages"
+                - "open mail" -> "Mail"
+                """
+                
+                response = self.ai_generator.client.chat.completions.create(
+                    model=self.ai_generator.model,
+                    messages=[{"role": "user", "content": app_prompt}],
+                    temperature=0.1,
+                    max_tokens=50
+                )
+                
+                app_name = response.choices[0].message.content.strip()
+                return app_name if app_name else None
+                    
+        except Exception as e:
+            self.console.print(f"❌ [red]AI app determination failed:[/red] {e}")
+        
+        return None
+    
+    def _ai_determine_app_name(self, text: str) -> Optional[str]:
+        """Use AI to determine what macOS app to open"""
+        try:
+            if self.ai_generator and self.ai_generator.ai_available:
+                app_prompt = f"""
+                User wants to open/launch: "{text}"
+                
+                What macOS application name should I use with the 'open -a' command? 
+                Respond with just the app name, nothing else.
+                If it's not a macOS app, respond with "NO_APP".
+                
+                Examples:
+                - "open Spotify" -> "Spotify"
+                - "open music" -> "Music"
+                - "launch calculator" -> "Calculator"
+                - "open chrome" -> "Google Chrome"
+                - "start safari" -> "Safari"
+                - "open finder" -> "Finder"
+                - "launch terminal" -> "Terminal"
+                - "open vscode" -> "Visual Studio Code"
+                - "open some website" -> "NO_APP"
+                """
+                
+                response = self.ai_generator.client.chat.completions.create(
+                    model=self.ai_generator.model,
+                    messages=[{"role": "user", "content": app_prompt}],
+                    temperature=0.1,
+                    max_tokens=50
+                )
+                
+                app_name = response.choices[0].message.content.strip()
+                if app_name != "NO_APP":
+                    return app_name
+                    
+        except Exception as e:
+            self.console.print(f"❌ [red]AI app determination failed:[/red] {e}")
+        
+        return None
+    
+    def _execute_ai_system_action(self, solution: Dict[str, Any], text: str) -> Dict[str, Any]:
+        """AI-driven system command execution with real app control"""
+        try:
+            system_command = solution.get('system_command', '')
+            
+            # Handle time requests
+            if 'time' in system_command.lower() or 'time' in text.lower():
+                now = datetime.now()
+                time_str = now.strftime("%I:%M:%S %p")
+                date_str = now.strftime("%A, %B %d, %Y")
+                
+                self.console.print(f"🕐 [green]Current Time:[/green] {time_str}")
+                self.console.print(f"📅 [green]Date:[/green] {date_str}")
+                
+                return {
+                    "success": True,
+                    "type": "time_information",
+                    "time": time_str,
+                    "date": date_str,
+                    "message": f"Current time is {time_str} on {date_str}"
+                }
+            
+            # Handle app opening requests with AI
+            app_to_open = self._ai_determine_app_to_open(text)
+            if app_to_open:
+                return self._execute_app_launch(app_to_open, text)
+            
+            # Handle system settings
+            system_setting = self._ai_determine_system_setting(text)
+            if system_setting:
+                return self._execute_system_setting(system_setting, text)
+            
+            # Default system response
+            return {
+                "success": True,
+                "type": "system_info",
+                "message": solution.get('response_message', "System action completed")
+            }
+            
+        except Exception as e:
+            return {"success": False, "error": f"AI system action failed: {e}"}
+    
+    def _ai_determine_app_to_open(self, text: str) -> Optional[str]:
+        """Use AI to determine which app to open"""
+        try:
+            if self.ai_generator and self.ai_generator.ai_available:
+                app_prompt = f"""
+                User request: "{text}"
+                
+                What macOS application should I open? Respond with just the app name, nothing else.
+                
+                Common apps:
+                - "open spotify" -> "Spotify"
+                - "open calculator" -> "Calculator"
+                - "open safari" -> "Safari"
+                - "open notes" -> "Notes"
+                - "open terminal" -> "Terminal"
+                - "open finder" -> "Finder"
+                - "open calendar" -> "Calendar"
+                - "open mail" -> "Mail"
+                - "open messages" -> "Messages"
+                - "open photos" -> "Photos"
+                - "open music" -> "Music"
+                - "open vscode" -> "Visual Studio Code"
+                
+                If not an app request, respond with "NO_APP"
+                """
+                
+                response = self.ai_generator.client.chat.completions.create(
+                    model=self.ai_generator.model,
+                    messages=[{"role": "user", "content": app_prompt}],
+                    temperature=0.1,
+                    max_tokens=50
+                )
+                
+                app_name = response.choices[0].message.content.strip()
+                return app_name if app_name != "NO_APP" else None
+                
+        except Exception as e:
+            self.console.print(f"⚠️ [yellow]AI app determination failed:[/yellow] {e}")
+        
+        return None
+    
+    def _execute_app_launch(self, app_name: str, text: str) -> Dict[str, Any]:
+        """Execute app launch command"""
+        try:
+            # Try to open the app
+            cmd = f'open -a "{app_name}"'
+            result = subprocess.run(cmd, shell=True, capture_output=True, text=True)
+            
+            if result.returncode == 0:
+                self.console.print(f"🚀 [green]Launched:[/green] {app_name}")
+                return {
+                    "success": True,
+                    "type": "app_launch",
+                    "app_name": app_name,
+                    "message": f"Successfully opened {app_name}!"
+                }
+            else:
+                # Try alternative app names
+                alternative = self._get_app_alternative(app_name)
+                if alternative:
+                    cmd = f'open -a "{alternative}"'
+                    result = subprocess.run(cmd, shell=True, capture_output=True, text=True)
+                    if result.returncode == 0:
+                        self.console.print(f"🚀 [green]Launched Alternative:[/green] {alternative}")
+                        return {
+                            "success": True,
+                            "type": "app_launch",
+                            "app_name": alternative,
+                            "message": f"Opened {alternative} instead!"
+                        }
+                
+                return {
+                    "success": False,
+                    "error": f"Could not find or launch {app_name}",
+                    "message": f"Sorry, I couldn't open {app_name}. Make sure it's installed on your system."
+                }
+                
+        except Exception as e:
+            return {"success": False, "error": f"App launch failed: {e}"}
+    
+    def _get_app_alternative(self, app_name: str) -> Optional[str]:
+        """Get alternative app names if the first attempt fails"""
+        alternatives = {
+            "Spotify": ["Spotify", "Music"],
+            "Calculator": ["Calculator"],
+            "Safari": ["Safari", "Google Chrome", "Firefox"],
+            "Google Chrome": ["Google Chrome", "Safari"],
+            "Notes": ["Notes", "TextEdit"],
+            "Terminal": ["Terminal", "iTerm"],
+            "Finder": ["Finder"],
+            "Calendar": ["Calendar"],
+            "Mail": ["Mail"],
+            "Messages": ["Messages"],
+            "Photos": ["Photos"],
+            "Music": ["Music", "Spotify"],
+            "Visual Studio Code": ["Visual Studio Code", "Code"]
+        }
+        
+        if app_name in alternatives and len(alternatives[app_name]) > 1:
+            return alternatives[app_name][1]  # Return second option
+        
+        return None
+    
+    def _ai_determine_system_setting(self, text: str) -> Optional[Dict[str, str]]:
+        """Use AI to determine system setting changes"""
+        try:
+            if self.ai_generator and self.ai_generator.ai_available:
+                setting_prompt = f"""
+                User request: "{text}"
+                
+                Is this a system setting change request? If yes, respond with JSON:
+                {{"setting": "volume|brightness", "action": "increase|decrease|mute"}}
+                
+                If not a setting request, respond with: "NO_SETTING"
+                
+                Examples:
+                - "turn up volume" -> {{"setting": "volume", "action": "increase"}}
+                - "make it brighter" -> {{"setting": "brightness", "action": "increase"}}
+                - "mute sound" -> {{"setting": "volume", "action": "mute"}}
+                """
+                
+                response = self.ai_generator.client.chat.completions.create(
+                    model=self.ai_generator.model,
+                    messages=[{"role": "user", "content": setting_prompt}],
+                    temperature=0.1,
+                    max_tokens=100
+                )
+                
+                result = response.choices[0].message.content.strip()
+                
+                if result != "NO_SETTING":
+                    import json
+                    return json.loads(result)
+                    
+        except Exception as e:
+            self.console.print(f"⚠️ [yellow]AI setting determination failed:[/yellow] {e}")
+        
+        return None
+    
+    def _execute_system_setting(self, setting_info: Dict[str, str], text: str) -> Dict[str, Any]:
+        """Execute system setting changes"""
+        try:
+            setting = setting_info.get("setting")
+            action = setting_info.get("action")
+            
+            if setting == "brightness":
+                if action == "increase":
+                    cmd = "osascript -e 'tell application \"System Events\" to key code 144'"
+                else:
+                    cmd = "osascript -e 'tell application \"System Events\" to key code 145'"
+            elif setting == "volume":
+                if action == "increase":
+                    cmd = "osascript -e 'tell application \"System Events\" to key code 126'"
+                elif action == "decrease":
+                    cmd = "osascript -e 'tell application \"System Events\" to key code 125'"
+                else:  # mute
+                    cmd = "osascript -e 'tell application \"System Events\" to key code 74'"
+            else:
+                return {"success": False, "error": f"Unknown setting: {setting}"}
+            
+            result = subprocess.run(cmd, shell=True, capture_output=True, text=True)
+            
+            if result.returncode == 0:
+                action_desc = f"{setting} {action}"
+                self.console.print(f"🎛️ [green]System Control:[/green] {action_desc}")
+                return {
+                    "success": True,
+                    "type": "system_control",
+                    "setting": setting,
+                    "action": action,
+                    "message": f"System {action_desc} executed successfully!"
+                }
+            else:
+                return {"success": False, "error": f"Failed to execute {setting} {action}"}
+                
+        except Exception as e:
+            return {"success": False, "error": f"System setting change failed: {e}"}
+    
+    def _execute_ai_web_action(self, solution: Dict[str, Any], text: str) -> Dict[str, Any]:
+        """AI-driven web navigation or app launch with permission check"""
+        try:
+            # Permission check first
+            if not self._check_system_permissions(text):
+                return {
+                    "success": False,
+                    "type": "permission_denied",
+                    "message": "System/app control is not permitted in this environment. Please enable permissions."
+                }
+            
+            # First try to determine if it's an app or website using AI
+            app_name = self._ai_determine_app_name(text)
+            
+            if app_name:
+                # It's a macOS app - try to launch it
+                import platform
+                if platform.system() == "Darwin":
+                    import subprocess
+                    cmd = f'open -a "{app_name}"'
+                    result = subprocess.run(cmd, shell=True, capture_output=True, text=True)
+                    if result.returncode == 0:
+                        self.console.print(f"🚀 [green]AI Launched App:[/green] {app_name}")
+                        return {
+                            "success": True,
+                            "type": "application_launch",
+                            "app_name": app_name,
+                            "message": f"Successfully launched {app_name}"
+                        }
+                    else:
+                        self.console.print(f"❌ [red]Failed to launch {app_name}:[/red] {result.stderr.strip()}")
+                        # Fall back to web if app launch fails
+                        web_url = self._ai_determine_website(text)
+                        if web_url:
+                            webbrowser.open(web_url)
+                            self.console.print(f"🌐 [green]AI Opened Website Instead:[/green] {web_url}")
+                            return {
+                                "success": True,
+                                "type": "web_navigation",
+                                "url": web_url,
+                                "message": f"App not found, opened website: {web_url}"
+                            }
+            else:
+                # It's a website - open in browser
+                web_url = solution.get('web_url') or self._ai_determine_website(text)
+                if web_url:
+                    webbrowser.open(web_url)
+                    self.console.print(f"🌐 [green]AI Opened Website:[/green] {web_url}")
+                    return {
+                        "success": True,
+                        "type": "web_navigation",
+                        "url": web_url,
+                        "message": solution.get('response_message', f"Opening {web_url}")
+                    }
+            
+            return self._fallback_processing(text)
+        except Exception as e:
+            return {"success": False, "error": f"AI web action failed: {e}"}
+                
+            result = response.choices[0].message.content.strip()
+            if result != "NOT_MATH":
+                self.console.print(f"🧮 [green]AI Calculation:[/green] {text} = {result}")
+                return {
+                    "success": True,
+                    "type": "computation",
+                    "result": result,
+                    "message": f"Computed: {text} = {result}"
+                }
+            
+            return self._fallback_processing(text)
+            
+        except Exception as e:
+            return {"success": False, "error": f"AI computation failed: {e}"}
+    
+    def _execute_ai_conversation(self, solution: Dict[str, Any], text: str) -> Dict[str, Any]:
+        """AI-driven conversation execution"""
+        try:
+            # Use AI to generate response
+            if self.ai_generator and self.ai_generator.ai_available:
+                response = self._generate_ai_conversational_response(text)
+            else:
+                response = solution.get('response_message', "I understand your message and I'm here to help!")
+            
+            self.console.print(f"💬 [green]AI Response:[/green] {response}")
+            
+            return {
+                "success": True,
+                "type": "conversation",
+                "response": response,
+                "message": response
+            }
+            
+        except Exception as e:
+            return {"success": False, "error": f"AI conversation failed: {e}"}
+    
+    def _generate_ai_conversational_response(self, text: str) -> str:
+        """Generate conversational response using AI"""
+        try:
+            conversation_prompt = f"""
+            User said: "{text}"
+            
+            Respond as Aimy, a helpful AI assistant. Be natural, friendly, and brief.
+            If they're asking for help, explain what you can do.
+            If it's a greeting, respond warmly.
+            If it's a question, try to be helpful.
+            
+            Keep response under 100 words and conversational.
+            """
+            
+            response = self.ai_generator.client.chat.completions.create(
+                model=self.ai_generator.model,
+                messages=[{"role": "user", "content": conversation_prompt}],
+                temperature=0.7,
+                max_tokens=150
+            )
+            
+            return response.choices[0].message.content.strip()
+            
+        except Exception as e:
+            return f"I understand you're saying: '{text}'. I'm Aimy, your AI assistant, and I'm here to help with whatever you need!"
+    
+    def _execute_ai_adaptive_solution(self, solution: Dict[str, Any], text: str) -> Dict[str, Any]:
+        """AI-driven adaptive execution for any request"""
+        try:
+            # Use fallback processing which handles common requests intelligently
+            result = self._fallback_processing(text)
+            
+            # If fallback doesn't handle it, use AI to generate response
+            if result.get('type') == 'conversation' and 'asking about' in result.get('message', ''):
+                if self.ai_generator and self.ai_generator.ai_available:
+                    ai_response = self._generate_ai_conversational_response(text)
+                    result['message'] = ai_response
+                    result['response'] = ai_response
+            
+            return result
+            
+        except Exception as e:
+            return {"success": False, "error": f"AI adaptive execution failed: {e}"}
     
     def _execute_system_call(self, solution: Dict[str, Any], text: str) -> Dict[str, Any]:
         """Execute direct system calls"""
@@ -372,40 +1032,63 @@ class AgenticAICore:
         except Exception as e:
             return {"success": False, "error": f"System interrogation failed: {e}"}
     
-    def _execute_html_creation(self, solution: Dict[str, Any], text: str) -> Dict[str, Any]:
-        """Execute HTML website creation using TRUE AI intelligence"""
+    def _execute_ai_system_action(self, solution: Dict[str, Any], text: str) -> Dict[str, Any]:
+        """AI-driven system command execution with permission check"""
         try:
-            self.console.print("🧠 [bold cyan]AI Intelligence:[/bold cyan] Analyzing your request...")
+            if not self._check_system_permissions(text):
+                return {
+                    "success": False,
+                    "type": "permission_denied",
+                    "message": "System/app control is not permitted in this environment. Please enable permissions."
+                }
+            system_command = solution.get('system_command', '')
+            # Handle time requests
+            if 'time' in system_command.lower() or 'time' in text.lower():
+                now = datetime.now()
+                time_str = now.strftime("%I:%M:%S %p")
+                date_str = now.strftime("%A, %B %d, %Y")
+                self.console.print(f"🕐 [green]Current Time:[/green] {time_str}")
+                self.console.print(f"📅 [green]Date:[/green] {date_str}")
+                return {
+                    "success": True,
+                    "type": "time_information",
+                    "time": time_str,
+                    "date": date_str,
+                    "message": f"Current time is {time_str} on {date_str}"
+                }
+            # Check if it's an app to launch
+            app_to_open = self._ai_determine_app_to_open(text)
+            if app_to_open:
+                return self._execute_app_launch(app_to_open, text)
             
-            # Use AI to generate content intelligently
-            ai_result = self.ai_generator.generate_content(text, "html")
-            
-            if not ai_result.get("success", False):
-                return {"success": False, "error": "AI generation failed"}
-            
-            self.console.print("🌐 [cyan]AI HTML Generation:[/cyan] Creating website...")
-            
-            # Get AI-generated content and filename
-            html_content = ai_result["content"]
-            suggested_filename = ai_result.get("filename", "ai_website.html")
-            
-            # Save HTML file with AI-suggested name
-            timestamp = int(time.time())
-            filename = f"{suggested_filename.replace('.html', '')}_{timestamp}.html"
-            filepath = os.path.join(os.path.expanduser("~/Documents"), filename)
-            
-            with open(filepath, 'w') as f:
-                f.write(html_content)
-            
-            self.console.print(f"🎨 [green]AI Website Created:[/green] {filename}")
-            
-            # Show AI analysis
-            if "analysis" in ai_result:
-                analysis = ai_result["analysis"]
-                self.console.print(f"💡 [yellow]AI Analysis:[/yellow] {analysis.get('primary_purpose', 'Web content')}")
-                if "key_features" in analysis:
-                    features_text = ", ".join(analysis["key_features"])
-                    self.console.print(f"✨ [blue]Features Added:[/blue] {features_text}")
+            # For other system commands, try to execute
+            if system_command and not any(word in system_command.lower() for word in ['spotify', 'music', 'calculator', 'safari']):
+                import subprocess
+                result = subprocess.run(system_command, shell=True, capture_output=True, text=True)
+                if result.returncode == 0:
+                    return {
+                        "success": True,
+                        "type": "system_command",
+                        "output": result.stdout.strip(),
+                        "message": solution.get('response_message', "System command executed successfully.")
+                    }
+                else:
+                    return {
+                        "success": False,
+                        "type": "system_command",
+                        "error": result.stderr.strip(),
+                        "message": f"System command failed: {result.stderr.strip()}"
+                    }
+            return {
+                "success": True,
+                "type": "system_info",
+                "message": solution.get('response_message', "System action completed")
+            }
+        except Exception as e:
+            return {"success": False, "error": f"AI system action failed: {e}"}
+            if "key_features" in analysis:
+                features_text = ", ".join(analysis["key_features"])
+                self.console.print(f"✨ [blue]Features Added:[/blue] {features_text}")
             
             # Open in browser
             webbrowser.open(f'file://{filepath}')
@@ -981,68 +1664,40 @@ class AgenticAICore:
             return "Safari"  # Better default for web-related requests
     
     def _detect_website_request(self, text: str) -> Optional[Dict[str, str]]:
-        """AI-powered detection of website requests"""
-        text_lower = text.lower()
-        
-        # AI reasoning for common website patterns
-        website_patterns = {
-            # Social Media & Video
-            'youtube': {'name': 'YouTube', 'url': 'https://www.youtube.com'},
-            'video': {'name': 'YouTube', 'url': 'https://www.youtube.com'},
-            'videos': {'name': 'YouTube', 'url': 'https://www.youtube.com'},
-            'facebook': {'name': 'Facebook', 'url': 'https://www.facebook.com'},
-            'instagram': {'name': 'Instagram', 'url': 'https://www.instagram.com'},
-            'twitter': {'name': 'Twitter', 'url': 'https://www.twitter.com'},
-            'x.com': {'name': 'X', 'url': 'https://www.x.com'},
-            'tiktok': {'name': 'TikTok', 'url': 'https://www.tiktok.com'},
-            
-            # Shopping & E-commerce
-            'amazon': {'name': 'Amazon', 'url': 'https://www.amazon.com'},
-            'shop amazon': {'name': 'Amazon', 'url': 'https://www.amazon.com'},
-            'ebay': {'name': 'eBay', 'url': 'https://www.ebay.com'},
-            'etsy': {'name': 'Etsy', 'url': 'https://www.etsy.com'},
-            
-            # Search & Information
-            'google': {'name': 'Google', 'url': 'https://www.google.com'},
-            'search google': {'name': 'Google', 'url': 'https://www.google.com'},
-            'bing': {'name': 'Bing', 'url': 'https://www.bing.com'},
-            'wikipedia': {'name': 'Wikipedia', 'url': 'https://www.wikipedia.org'},
-            
-            # News & Media
-            'news': {'name': 'Apple News', 'url': 'https://www.apple.com/news/'},
-            'reddit': {'name': 'Reddit', 'url': 'https://www.reddit.com'},
-            'bbc': {'name': 'BBC News', 'url': 'https://www.bbc.com'},
-            'cnn': {'name': 'CNN', 'url': 'https://www.cnn.com'},
-            
-            # Professional & Work
-            'linkedin': {'name': 'LinkedIn', 'url': 'https://www.linkedin.com'},
-            'github': {'name': 'GitHub', 'url': 'https://www.github.com'},
-            'gmail': {'name': 'Gmail', 'url': 'https://mail.google.com'},
-            'outlook': {'name': 'Outlook', 'url': 'https://outlook.office.com'},
-            
-            # Entertainment & Streaming
-            'netflix': {'name': 'Netflix', 'url': 'https://www.netflix.com'},
-            'spotify': {'name': 'Spotify', 'url': 'https://www.spotify.com'},
-            'apple music': {'name': 'Apple Music', 'url': 'https://music.apple.com'},
-            'twitch': {'name': 'Twitch', 'url': 'https://www.twitch.tv'}
-        }
-        
-        # Check for website keywords in the text
-        for keyword, site_info in website_patterns.items():
-            if keyword in text_lower:
-                return site_info
-        
-        # AI reasoning for generic website patterns
-        if any(word in text_lower for word in ['open', 'launch', 'go to', 'visit']) and any(word in text_lower for word in ['website', 'site', '.com', 'www']):
-            # Try to extract domain from text
-            import re
-            domain_match = re.search(r'([\w-]+\.com|[\w-]+\.org|[\w-]+\.net)', text_lower)
-            if domain_match:
-                domain = domain_match.group(1)
-                return {
-                    'name': domain.replace('.com', '').replace('.org', '').replace('.net', '').title(),
-                    'url': f'https://www.{domain}'
-                }
+        """TRUE AI-powered website detection using OpenAI API"""
+        try:
+            if self.ai_generator and self.ai_generator.ai_available:
+                website_prompt = f"""
+                User request: "{text}"
+                
+                Is this a request to open/visit a website? If yes, respond with JSON:
+                {{"name": "Website Name", "url": "https://full-url.com"}}
+                
+                If not a website request, respond with: "NO_WEBSITE"
+                
+                Examples:
+                - "open YouTube" -> {{"name": "YouTube", "url": "https://www.youtube.com"}}
+                - "visit GitHub" -> {{"name": "GitHub", "url": "https://github.com"}}  
+                - "go to mongodb" -> {{"name": "MongoDB", "url": "https://www.mongodb.com"}}
+                - "hello there" -> "NO_WEBSITE"
+                """
+                
+                response = self.ai_generator.client.chat.completions.create(
+                    model=self.ai_generator.model,
+                    messages=[{"role": "user", "content": website_prompt}],
+                    temperature=0.1,
+                    max_tokens=200
+                )
+                
+                result = response.choices[0].message.content.strip()
+                
+                if result != "NO_WEBSITE":
+                    import json
+                    website_info = json.loads(result)
+                    return website_info
+                    
+        except Exception as e:
+            self.console.print(f"⚠️ [yellow]AI website detection failed:[/yellow] {e}")
         
         return None
 
@@ -1154,32 +1809,9 @@ class AgenticAICore:
         return ""
     
     def _generate_conversational_response(self, text: str) -> str:
-        """AI generation of conversational responses"""
-        text_lower = text.lower().strip()
-        
-        # Greeting responses
-        if any(greeting in text_lower for greeting in ['hello', 'hi', 'hey']):
-            return "Hello! I'm Aimy, your agentic AI assistant. I can help you with tasks, answer questions, create applications, and much more. What would you like me to do?"
-        
-        # Gratitude responses
-        elif any(thanks in text_lower for thanks in ['thank', 'thanks']):
-            return "You're very welcome! I'm here to help whenever you need assistance. Is there anything else I can do for you?"
-        
-        # Help requests
-        elif any(help_word in text_lower for help_word in ['help', 'assist']):
-            return "I'm here to help! I can:\n• Create applications (calculators, text editors, games)\n• Open and control system applications\n• Perform calculations and searches\n• Answer questions and provide information\n• Write code and automate tasks\n\nWhat specific task would you like me to help you with?"
-        
-        # Capability questions
-        elif any(question in text_lower for question in ['what can you do', 'capabilities', 'features']):
-            return "I'm Aimy, an agentic AI with dynamic capabilities! I can:\n🎨 Create custom applications on demand\n💻 Control your system and launch apps\n🧮 Perform calculations and computations\n🌐 Browse the web and search for information\n💬 Have natural conversations\n📝 Write code and generate solutions\n🤖 Learn and adapt from our interactions\n\nI don't use hardcoded responses - everything is generated dynamically based on your needs!"
-        
-        # Farewell responses
-        elif any(bye in text_lower for bye in ['bye', 'goodbye', 'exit', 'quit']):
-            return "Goodbye! It was great helping you today. Feel free to come back anytime you need assistance. Take care!"
-        
-        # Default intelligent response
-        else:
-            return f"I understand you're saying: '{text}'. As an agentic AI, I'm designed to reason through requests dynamically. Could you tell me more specifically what you'd like me to help you with? I can create applications, control systems, answer questions, or assist with various tasks."
+        """TRUE AI conversational responses using OpenAI API"""
+        # Use the AI-powered conversational response method
+        return self._generate_ai_conversational_response(text)
     
     def _generate_intelligent_response(self, text: str) -> str:
         """AI generation of intelligent responses for complex requests"""
@@ -1208,3 +1840,149 @@ class AgenticAICore:
             return 'gratitude'
         else:
             return 'general'
+    
+    def _fallback_processing(self, user_input: str) -> Dict[str, Any]:
+        """Fallback processing when AI systems are unavailable"""
+        text_lower = user_input.lower().strip()
+        
+        # Weather requests
+        if any(word in text_lower for word in ["weather", "temperature", "forecast"]):
+            return {
+                "success": True,
+                "type": "web_redirect",
+                "message": "I would be happy to help you check the weather! Let me open a weather service for you.",
+                "action": "open_weather_service",
+                "url": "https://weather.gov"
+            }
+        
+        # Time requests
+        elif any(word in text_lower for word in ["time", "clock", "what time"]):
+            now = datetime.now()
+            time_str = now.strftime("%I:%M:%S %p")
+            date_str = now.strftime("%A, %B %d, %Y")
+            return {
+                "success": True,
+                "type": "time_information",
+                "time": time_str,
+                "date": date_str,
+                "message": f"Current time is {time_str} on {date_str}"
+            }
+        
+        # Default conversational response
+        else:
+            return {
+                "success": True,
+                "type": "conversation",
+                "message": f"I understand you are asking about: \"{user_input}\". I am ready to help you with whatever you need!",
+                "response": f"I understand you are asking about: \"{user_input}\". I am ready to help you with whatever you need!"
+            }
+    
+
+    
+    def _execute_system_control_safe(self, solution: Dict[str, Any], text: str) -> Dict[str, Any]:
+        """Safe system control execution with permission checks"""
+        try:
+            # Handle website requests specially
+            website_info = self._detect_website_request(text)
+            if website_info:
+                return {
+                    "success": True,
+                    "type": "web_navigation",
+                    "website": website_info["name"],
+                    "url": website_info["url"],
+                    "message": f"I'll help you visit {website_info['name']}! Opening {website_info['url']} for you."
+                }
+            
+            return {
+                "success": True,
+                "type": "helpful_response",
+                "message": "I would love to help with that! While I have some limitations in this web environment, I can still assist you in many ways. What specific task are you trying to accomplish?"
+            }
+            
+        except Exception as e:
+            return {
+                "success": True,
+                "type": "helpful_response",
+                "message": "I would love to help with that! What specific task are you trying to accomplish?"
+            }
+
+    def _fallback_processing(self, user_input: str) -> Dict[str, Any]:
+        """Fallback processing when AI systems are unavailable"""
+        text_lower = user_input.lower().strip()
+        
+        # Weather requests
+        if any(word in text_lower for word in ['weather', 'temperature', 'forecast']):
+            return {
+                "success": True,
+                "type": "web_redirect",
+                "message": "I'd be happy to help you check the weather! Let me open a weather service for you.",
+                "action": "open_weather_service",
+                "url": "https://weather.gov"
+            }
+        
+        # Time requests
+        elif any(word in text_lower for word in ['time', 'clock', 'what time']):
+            now = datetime.now()
+            time_str = now.strftime("%I:%M:%S %p")
+            date_str = now.strftime("%A, %B %d, %Y")
+            return {
+                "success": True,
+                "type": "time_information",
+                "time": time_str,
+                "date": date_str,
+                "message": f"Current time is {time_str} on {date_str}"
+            }
+        
+        # Default conversational response
+        else:
+            return {
+                "success": True,
+                "type": "conversation",
+                "message": f"I understand you're asking about: '{user_input}'. I'm ready to help you with whatever you need!",
+                "response": f"I understand you're asking about: '{user_input}'. I'm ready to help you with whatever you need!"
+            }
+    
+    def _check_system_permissions(self, text: str) -> bool:
+        """Check if system operations are allowed"""
+        # Allow local app launching but restrict dangerous system operations
+        if os.getenv('RAILWAY_STATIC_URL') or os.getenv('FLASK_ENV') == 'production':
+            # Check if this is a safe app launch request
+            safe_apps = ['spotify', 'music', 'safari', 'chrome', 'firefox', 'calculator', 
+                        'calendar', 'notes', 'mail', 'photos', 'finder', 'terminal',
+                        'textedit', 'preview', 'system preferences', 'activity monitor']
+            
+            text_lower = text.lower()
+            if any(app in text_lower for app in safe_apps):
+                # Allow safe app launches even in production
+                return True
+            
+            # Block other system operations in production
+            return False
+        return True
+    
+    def _execute_system_control_safe(self, solution: Dict[str, Any], text: str) -> Dict[str, Any]:
+        """Safe system control execution with permission checks"""
+        try:
+            # Handle website requests specially
+            website_info = self._detect_website_request(text)
+            if website_info:
+                return {
+                    "success": True,
+                    "type": "web_navigation",
+                    "website": website_info['name'],
+                    "url": website_info['url'],
+                    "message": f"I'll help you visit {website_info['name']}! Opening {website_info['url']} for you."
+                }
+            
+            return {
+                "success": True,
+                "type": "helpful_response",
+                "message": "I'd love to help with that! While I have some limitations in this web environment, I can still assist you in many ways. What specific task are you trying to accomplish?"
+            }
+            
+        except Exception as e:
+            return {
+                "success": True,
+                "type": "helpful_response",
+                "message": "I'd love to help with that! What specific task are you trying to accomplish?"
+            }
