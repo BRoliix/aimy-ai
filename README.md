@@ -10,11 +10,11 @@ Aimy is an advanced agentic AI system powered by OpenAI's GPT-4 that performs ta
 
 ## ✨ Features
 
+- **🗣️ Voice-First Experience** - Just click and talk! No typing required
 - **🧠 Pure AI Intelligence** - No hardcoded responses, everything generated dynamically
 - **🎨 Dynamic Application Creation** - Creates custom apps, calculators, websites on demand  
 - **💻 System Integration** - Controls your system and launches applications intelligently
-- **🗣️ Voice Interaction** - Natural speech recognition with voice responses
-- **🌐 Web Interface** - Beautiful responsive chat interface for web access
+- **🌐 Voice Web Interface** - Click to talk, Aimy responds with voice and text
 - **🔄 Adaptive Learning** - Learns and improves from every interaction
 - **⚡ OpenAI Powered** - GPT-4 integration for maximum intelligence
 
@@ -96,22 +96,27 @@ Everything flows through AI intelligence - no hardcoded templates, no predetermi
 
 ## 💬 Usage Examples
 
-### Text Interface
+### Voice Web Interface (Primary)
 ```
-🤖 Aimy: Hello! I'm Aimy, your agentic AI assistant. What would you like me to do?
-👤 You: Create a Python calculator app
-🤖 Aimy: Creating an intelligent calculator application for you...
+🌐 Open the web interface
+🎙️ Click "Start Voice Conversation"  
+👤 "Create a Python calculator app"
+🤖 "I'll create an intelligent calculator application for you..." (spoken + text)
 ```
 
-### Voice Interface  
+### Local Voice Interface  
 ```
-🎙️  Say "Aimy" to wake up
+🎙️ Run: python direct_voice_ai.py
 👤 "Aimy, open YouTube"
-🤖 "Opening YouTube in your browser!"
+🤖 "Opening YouTube in your browser!" (spoken response)
 ```
 
-### Web Interface
-Beautiful responsive chat interface accessible from any browser with real-time AI responses.
+### Text Interface (Fallback)
+```
+💻 Run: python complete_agentic_ai.py
+👤 Type: "Help me with math"
+🤖 Text response with full capabilities
+```
 
 ## 🔧 Configuration
 

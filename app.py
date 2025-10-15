@@ -92,39 +92,57 @@ WEB_TEMPLATE = """
             color: #333;
             margin-right: auto;
         }
-        .input-area {
-            display: flex;
-            gap: 10px;
+        .voice-control {
+            text-align: center;
+            padding: 20px 0;
         }
-        .input-field {
-            flex: 1;
-            padding: 15px;
-            border: 2px solid #e0e0e0;
-            border-radius: 25px;
-            font-size: 16px;
-            outline: none;
-            transition: border-color 0.3s;
-        }
-        .input-field:focus {
-            border-color: #667eea;
-        }
-        .send-button {
-            padding: 15px 25px;
-            background: #667eea;
+        .voice-button {
+            padding: 20px 40px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             color: white;
             border: none;
-            border-radius: 25px;
+            border-radius: 50px;
             cursor: pointer;
-            font-size: 16px;
+            font-size: 18px;
             font-weight: bold;
-            transition: background 0.3s;
+            transition: all 0.3s ease;
+            box-shadow: 0 8px 20px rgba(102, 126, 234, 0.3);
+            margin: 10px;
         }
-        .send-button:hover {
-            background: #5a6fd8;
+        .voice-button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 12px 25px rgba(102, 126, 234, 0.4);
         }
-        .send-button:disabled {
-            background: #ccc;
+        .voice-button:active {
+            transform: translateY(0);
+            box-shadow: 0 6px 15px rgba(102, 126, 234, 0.3);
+        }
+        .voice-button.listening {
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+            animation: pulse 2s infinite;
+        }
+        .voice-button.processing {
+            background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
             cursor: not-allowed;
+        }
+        @keyframes pulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+            100% { transform: scale(1); }
+        }
+        .status-indicator {
+            margin-top: 15px;
+            font-size: 16px;
+            font-weight: 500;
+        }
+        .listening-status {
+            color: #f5576c;
+        }
+        .processing-status {
+            color: #00f2fe;
+        }
+        .ready-status {
+            color: #667eea;
         }
         .loading {
             display: none;
@@ -167,56 +185,113 @@ WEB_TEMPLATE = """
         </div>
         
         <div class="loading" id="loadingIndicator">
-            🧠 Aimy is thinking...
+            🧠 Aimy is processing...
         </div>
         
-        <div class="input-area">
-            <input type="text" id="userInput" class="input-field" placeholder="Ask Aimy anything..." maxlength="500">
-            <button onclick="sendMessage()" id="sendButton" class="send-button">Send</button>
+        <div class="voice-control">
+            <button onclick="startVoiceInteraction()" id="voiceButton" class="voice-button">
+                🎙️ Start Voice Conversation
+            </button>
+            <div class="status-indicator">
+                <span id="statusText" class="ready-status">Click to talk with Aimy</span>
+            </div>
         </div>
     </div>
     
     <div class="container">
-        <h3 style="text-align: center; margin-bottom: 20px; color: #333;">🚀 What Aimy Can Do</h3>
+        <h3 style="text-align: center; margin-bottom: 20px; color: #333;">�️ Voice Commands You Can Say</h3>
         <div class="features">
             <div class="feature">
                 <span class="feature-icon">🎨</span>
-                <strong>Create Applications</strong><br>
-                <small>Dynamic app generation</small>
-            </div>
-            <div class="feature">
-                <span class="feature-icon">💻</span>
-                <strong>System Control</strong><br>
-                <small>Open websites & apps</small>
-            </div>
-            <div class="feature">
-                <span class="feature-icon">🧮</span>
-                <strong>Calculations</strong><br>
-                <small>Math & computations</small>
-            </div>
-            <div class="feature">
-                <span class="feature-icon">💬</span>
-                <strong>Conversations</strong><br>
-                <small>Natural interactions</small>
-            </div>
-            <div class="feature">
-                <span class="feature-icon">📝</span>
-                <strong>Code Generation</strong><br>
-                <small>AI-powered solutions</small>
+                <strong>"Create a calculator"</strong><br>
+                <small>Dynamic app creation</small>
             </div>
             <div class="feature">
                 <span class="feature-icon">🌐</span>
-                <strong>Web Integration</strong><br>
-                <small>Browse & search</small>
+                <strong>"Open YouTube"</strong><br>
+                <small>Launch websites & apps</small>
             </div>
+            <div class="feature">
+                <span class="feature-icon">🧮</span>
+                <strong>"Calculate 25 times 4"</strong><br>
+                <small>Math & computations</small>
+            </div>
+            <div class="feature">
+                <span class="feature-icon">�</span>
+                <strong>"Open Terminal"</strong><br>
+                <small>System control</small>
+            </div>
+            <div class="feature">
+                <span class="feature-icon">📝</span>
+                <strong>"Write Python code"</strong><br>
+                <small>AI-powered coding</small>
+            </div>
+            <div class="feature">
+                <span class="feature-icon">💬</span>
+                <strong>"Help me with..."</strong><br>
+                <small>Natural conversations</small>
+            </div>
+        </div>
+        
+        <div style="text-align: center; margin-top: 30px; padding: 20px; background: rgba(102, 126, 234, 0.1); border-radius: 15px;">
+            <h4 style="color: #333; margin-bottom: 10px;">🎙️ Voice-First Experience</h4>
+            <p style="color: #666; margin: 0;">Simply click the voice button and start talking! Aimy will listen, understand, and respond with both text and voice.</p>
         </div>
     </div>
 
     <script>
         const chatContainer = document.getElementById('chatContainer');
-        const userInput = document.getElementById('userInput');
-        const sendButton = document.getElementById('sendButton');
+        const voiceButton = document.getElementById('voiceButton');
+        const statusText = document.getElementById('statusText');
         const loadingIndicator = document.getElementById('loadingIndicator');
+        
+        let recognition = null;
+        let isListening = false;
+        let speechSynthesis = window.speechSynthesis;
+
+        // Initialize Speech Recognition
+        function initSpeechRecognition() {
+            if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
+                const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+                recognition = new SpeechRecognition();
+                
+                recognition.continuous = true;
+                recognition.interimResults = false;
+                recognition.lang = 'en-US';
+                
+                recognition.onstart = function() {
+                    isListening = true;
+                    updateVoiceButton('listening');
+                    updateStatus('🎙️ Listening... Speak now!', 'listening-status');
+                };
+                
+                recognition.onresult = function(event) {
+                    const transcript = event.results[event.results.length - 1][0].transcript;
+                    addMessage(transcript, true);
+                    processVoiceCommand(transcript);
+                };
+                
+                recognition.onerror = function(event) {
+                    console.error('Speech recognition error:', event.error);
+                    addMessage('Voice recognition error. Please try again.');
+                    stopListening();
+                };
+                
+                recognition.onend = function() {
+                    if (isListening) {
+                        // Restart recognition for continuous listening
+                        setTimeout(() => {
+                            if (isListening) {
+                                recognition.start();
+                            }
+                        }, 100);
+                    }
+                };
+                
+                return true;
+            }
+            return false;
+        }
 
         function addMessage(message, isUser = false) {
             const messageDiv = document.createElement('div');
@@ -228,20 +303,55 @@ WEB_TEMPLATE = """
             chatContainer.scrollTop = chatContainer.scrollHeight;
         }
 
-        function showLoading(show) {
-            loadingIndicator.style.display = show ? 'block' : 'none';
-            sendButton.disabled = show;
-            sendButton.textContent = show ? 'Thinking...' : 'Send';
+        function updateVoiceButton(state) {
+            voiceButton.className = `voice-button ${state}`;
+            switch(state) {
+                case 'listening':
+                    voiceButton.textContent = '🔴 Listening...';
+                    break;
+                case 'processing':
+                    voiceButton.textContent = '🧠 Processing...';
+                    break;
+                default:
+                    voiceButton.textContent = '🎙️ Start Voice Conversation';
+            }
         }
 
-        async function sendMessage() {
-            const message = userInput.value.trim();
-            if (!message) return;
+        function updateStatus(text, className) {
+            statusText.textContent = text;
+            statusText.className = className;
+        }
 
-            // Add user message
-            addMessage(message, true);
-            userInput.value = '';
-            showLoading(true);
+        function startVoiceInteraction() {
+            if (!recognition && !initSpeechRecognition()) {
+                addMessage('Voice recognition is not supported in your browser. Please use Chrome, Safari, or Edge.');
+                return;
+            }
+
+            if (!isListening) {
+                isListening = true;
+                recognition.start();
+                addMessage('Voice conversation started! You can now speak to Aimy.');
+                voiceButton.onclick = stopListening;
+            } else {
+                stopListening();
+            }
+        }
+
+        function stopListening() {
+            isListening = false;
+            if (recognition) {
+                recognition.stop();
+            }
+            updateVoiceButton('ready');
+            updateStatus('Click to talk with Aimy', 'ready-status');
+            voiceButton.onclick = startVoiceInteraction;
+        }
+
+        async function processVoiceCommand(message) {
+            updateVoiceButton('processing');
+            updateStatus('🧠 Aimy is thinking...', 'processing-status');
+            loadingIndicator.style.display = 'block';
 
             try {
                 const response = await fetch('/chat', {
@@ -256,26 +366,70 @@ WEB_TEMPLATE = """
                 
                 if (data.success) {
                     addMessage(data.response);
+                    speakResponse(data.response);
                 } else {
-                    addMessage('Sorry, I encountered an error processing your request. Please try again.');
+                    const errorMsg = 'Sorry, I encountered an error processing your request. Please try again.';
+                    addMessage(errorMsg);
+                    speakResponse(errorMsg);
                 }
             } catch (error) {
                 console.error('Error:', error);
-                addMessage('Connection error. Please check your internet connection and try again.');
+                const errorMsg = 'Connection error. Please check your internet connection and try again.';
+                addMessage(errorMsg);
+                speakResponse(errorMsg);
             } finally {
-                showLoading(false);
+                loadingIndicator.style.display = 'none';
+                if (isListening) {
+                    updateVoiceButton('listening');
+                    updateStatus('🎙️ Listening... Speak now!', 'listening-status');
+                } else {
+                    updateVoiceButton('ready');
+                    updateStatus('Click to talk with Aimy', 'ready-status');
+                }
             }
         }
 
-        // Enter key support
-        userInput.addEventListener('keypress', function(e) {
-            if (e.key === 'Enter' && !sendButton.disabled) {
-                sendMessage();
+        function speakResponse(text) {
+            if (speechSynthesis) {
+                // Stop any ongoing speech
+                speechSynthesis.cancel();
+                
+                const utterance = new SpeechSynthesisUtterance(text);
+                utterance.rate = 1.0;
+                utterance.pitch = 1.0;
+                utterance.volume = 0.8;
+                
+                // Try to use a good voice
+                const voices = speechSynthesis.getVoices();
+                const preferredVoices = voices.filter(voice => 
+                    voice.name.includes('Karen') || 
+                    voice.name.includes('Samantha') || 
+                    voice.name.includes('Alex') ||
+                    voice.lang.startsWith('en-')
+                );
+                
+                if (preferredVoices.length > 0) {
+                    utterance.voice = preferredVoices[0];
+                }
+                
+                speechSynthesis.speak(utterance);
             }
-        });
+        }
 
-        // Focus on input field
-        userInput.focus();
+        // Initialize voices when they're loaded
+        if (speechSynthesis.onvoiceschanged !== undefined) {
+            speechSynthesis.onvoiceschanged = function() {
+                // Voices are loaded
+            };
+        }
+
+        // Add welcome message with voice option
+        window.addEventListener('load', function() {
+            addMessage('Welcome! Click the voice button to start talking with me, or wait for me to speak.');
+            setTimeout(() => {
+                speakResponse('Hello! I am Aimy, your agentic AI assistant. Click the voice button to start our conversation.');
+            }, 1000);
+        });
     </script>
 </body>
 </html>
