@@ -4,7 +4,7 @@
 
 Aimy is an advanced agentic AI system powered by OpenAI's GPT-4 that performs tasks through dynamic reasoning rather than hardcoded solutions. It can create applications, control systems, browse the web, and have intelligent conversations - all generated on-demand through AI intelligence.
 
-## 🚀 Deploy Your Own Aimy
+## 🚀 Deploy Your Own Aimy.ai
 
 **One-Click Railway Deploy:**
 
