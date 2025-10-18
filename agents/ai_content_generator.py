@@ -60,9 +60,6 @@ class AIContentGenerator:
             return self._fallback_generation(user_request, content_type)
     
     def _analyze_request_with_ai(self, request: str) -> Dict[str, Any]:
-        """
-        Use AI to intelligently analyze what the user wants to create
-        """
         analysis_prompt = f"""
         Analyze this user request and determine exactly what they want to create:
         
@@ -117,9 +114,6 @@ class AIContentGenerator:
             return self._fallback_analysis(request)
     
     def _generate_with_ai(self, request: str, analysis: Dict[str, Any]) -> str:
-        """
-        Use AI to generate the actual content based on analysis
-        """
         content_type = analysis.get("content_type", "text")
         purpose = analysis.get("primary_purpose", "")
         features = analysis.get("key_features", [])
@@ -189,10 +183,7 @@ class AIContentGenerator:
         return content
     
     def _fallback_analysis(self, request: str) -> Dict[str, Any]:
-        """
-        Pure AI analysis fallback - even without full AI, use intelligent reasoning
-        """
-        # Use simple AI reasoning to determine content type
+       # Use simple AI reasoning to determine content type
         content_types = {
             "html": ["html", "website", "web", "page", "site", "browser"],
             "python": ["python", "script", "py", "code", "program", "function"],

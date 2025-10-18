@@ -2161,7 +2161,7 @@ class AgenticAICore:
         }
         
         # Store patterns for future use
-        input_pattern = user_input.lower()[:50]  # First 50 chars as pattern key
+        input_pattern = user_input.lower()[:50]  
         
         if input_pattern not in self.learned_patterns:
             self.learned_patterns[input_pattern] = []
@@ -2187,18 +2187,12 @@ class AgenticAICore:
         # Keep context manageable
         if len(self.conversation_context) > 20:
             self.conversation_context = self.conversation_context[-10:]
-    
-    # Missing helper methods for AI reasoning
+
     def _generate_software_creation_solution(self, text: str) -> Dict[str, Any]:
         """AI reasoning for software creation requests"""
         from .ai_extensions import AIIntelligenceExtensions
         return AIIntelligenceExtensions.generate_software_creation_solution(text)
-    
-    # REMOVED ALL HARDCODED CREATION METHODS
-    # _generate_calculator_creation_solution() - REMOVED (was hardcoded)
-    # _generate_html_creation_solution() - REMOVED (was hardcoded) 
-    # _generate_python_creation_solution() - REMOVED (was hardcoded)
-    # All creation now uses _generate_intelligent_creation_solution() with AI
+
     
     def _generate_intelligent_creation_solution(self, text: str) -> Dict[str, Any]:
         """AI reasoning for intelligent content creation - uses true AI intelligence"""
@@ -2221,10 +2215,6 @@ class AgenticAICore:
             'complexity': 'low'
         }
     
-    # REMOVED HARDCODED ANALYSIS METHODS
-    # _analyze_html_requirements() - REMOVED (was hardcoded pattern matching)
-    # _analyze_python_requirements() - REMOVED (was hardcoded pattern matching)
-    # All analysis now handled by AI content generator with OpenAI API
     
     def _generate_system_control_solution(self, text: str) -> Dict[str, Any]:
         """Generate system control solution"""
@@ -2336,10 +2326,10 @@ class AgenticAICore:
         elif any(word in text for word in ['vscode', 'code', 'visual studio']):
             return "Visual Studio Code"
         elif any(word in text for word in ['slack', 'discord', 'zoom', 'teams']):
-            # Try to open these specific apps
-            return text.split()[-1].title()  # Use the app name from text
+          
+            return text.split()[-1].title()  
         else:
-            return "Safari"  # Better default for web-related requests
+            return "Safari"  
     
     def _detect_website_request(self, text: str) -> Optional[Dict[str, str]]:
         """TRUE AI-powered website detection using OpenAI API"""
@@ -2631,7 +2621,7 @@ class AgenticAICore:
             
             text_lower = text.lower()
             if any(app in text_lower for app in safe_apps):
-                # Allow safe app launches even in production
+                
                 return True
             
             # Block other system operations in production
@@ -2641,7 +2631,7 @@ class AgenticAICore:
     def _execute_system_control_safe(self, solution: Dict[str, Any], text: str) -> Dict[str, Any]:
         """Safe system control execution with permission checks"""
         try:
-            # Handle website requests specially
+           
             website_info = self._detect_website_request(text)
             if website_info:
                 return {
