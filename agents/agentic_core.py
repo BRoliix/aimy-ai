@@ -18,6 +18,7 @@ from typing import Dict, List, Any, Optional, Union
 from rich.console import Console
 from rich.panel import Panel
 from rich.text import Text
+from config.settings import settings
 from .ai_content_generator import AIContentGenerator
 
 class AgenticAICore:
@@ -832,18 +833,18 @@ class AgenticAICore:
                         "description": "reason for this location"
                     }},
                     {{
-                        "path": "/Users/{username}/Documents/AimyGenerated/{filename}",  
+                        "path": "/Users/{username}/Documents/NekoAIGenerated/{filename}",  
                         "type": "organized",
                         "description": "organized storage"
                     }}
                 ]
                 
                 Smart location rules:
-                - Code files (.py, .js, .html) → Desktop/AimyCode/ for quick access
+                - Code files (.py, .js, .html) → Desktop/NekoAI/ for quick access
                 - Learning/demo files → Desktop/ for immediate use
-                - Documents → Documents/AimyGenerated/ for organization
+                - Documents → Documents/NekoAIGenerated/ for organization
                 - Quick tests → Desktop/
-                - Professional projects → Documents/AimyGenerated/
+                - Professional projects → Documents/NekoAIGenerated/
                 
                 ALWAYS use /Users/{username}/ paths. Create organized subdirectories when appropriate.
                 """
@@ -876,13 +877,9 @@ class AgenticAICore:
         # Smart fallback locations - prioritize user system
         username = os.getenv('USER', 'user')
         
-        # Determine smart fallback based on content type
-        if content_type.lower() in ['python', 'py', 'javascript', 'js', 'html', 'css']:
-            primary_dir = f"/Users/{username}/Desktop/AimyCode"
-            secondary_dir = f"/Users/{username}/Documents/AimyGenerated"
-        else:
-            primary_dir = f"/Users/{username}/Desktop"
-            secondary_dir = f"/Users/{username}/Documents/AimyGenerated"
+        # Use settings-driven save directories
+        primary_dir = os.path.expanduser(settings.primary_save_dir)
+        secondary_dir = os.path.expanduser(settings.secondary_save_dir)
             
         # Create directories
         for dir_path in [primary_dir, secondary_dir]:
