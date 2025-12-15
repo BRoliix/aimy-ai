@@ -104,9 +104,31 @@ python direct_voice_ai.py
 
 **Web Interface:**
 ```bash
+export PIPELINE_ENABLED=true   # enables LLM + prompt pipeline
 python app.py
-# Visit http://localhost:8000
+# Visit http://localhost:9000 (localhost allows mic without HTTPS)
 ```
+
+### Pipeline (LLM + Tool Bridge)
+
+This project now includes a modular pipeline that avoids hardcoding by using prompt templates and environment-driven settings.
+
+- Templates: `prompts/assistant_system.j2`
+- Settings: `config/settings.py` (`OPENAI_MODEL`, `PIPELINE_ENABLED`, Whisper models)
+- LLM wrapper: `src/services/openai_client.py`
+- Orchestrator: `src/pipeline/orchestrator.py`
+- Tool bridge to the existing core: `src/tools/aimy_bridge.py`
+
+Behavior:
+- If `PIPELINE_ENABLED=true`, `/chat` will use the orchestrator.
+- The LLM emits either natural text or a JSON action `{ "action": "aimy_tool", "input": "..." }`.
+- Tool actions are executed via `AgenticAICore.process_request` (no hardcoded responses).
+
+### Whisper (Speech-to-Text)
+
+- Client toggle “Use Whisper (server transcription)” appears under the voice button.
+- Endpoint `/api/transcribe` uses `OPENAI_API_KEY` with `whisper-1` (fallback `gpt-4o-mini-transcribe`).
+- Mic works on `http://localhost` without HTTPS; for IP/remote use HTTPS.
 
 ### Railway Deployment
 

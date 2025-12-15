@@ -810,7 +810,13 @@ class AgenticAICore:
     
     def _ai_determine_save_locations(self, content_type: str, filename: str, user_input: str) -> List[Dict[str, str]]:
         """AI-powered smart system file location determination"""
+        import os
+        import json
+        
         try:
+            # Get username early so f-strings have a value
+            username = os.getenv('USER', 'user')
+
             if self.ai_generator and self.ai_generator.ai_available:
                 location_prompt = f"""
                 User created: {content_type} file named "{filename}"
@@ -849,11 +855,6 @@ class AgenticAICore:
                     max_tokens=300
                 )
                 
-                import json
-                import os
-                # Get username first
-                username = os.getenv('USER', 'user')
-                
                 locations = json.loads(response.choices[0].message.content.strip())
                 
                 # Replace {username} with actual username
@@ -873,7 +874,6 @@ class AgenticAICore:
             self.console.print(f"⚠️ [yellow]AI location determination failed:[/yellow] {e}")
         
         # Smart fallback locations - prioritize user system
-        import os
         username = os.getenv('USER', 'user')
         
         # Determine smart fallback based on content type

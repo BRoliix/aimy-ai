@@ -1,13 +1,12 @@
 #!/usr/bin/env python3
 """
-Aimy - Agentic AI Assistant Web Interface
+NekoAI - Agentic AI Assistant Web Interface
 Railway Deployment Entry Point
 """
 
 import os
-from flask import Flask, request, jsonify, render_template_string
-import threading
-import time
+from flask import Flask, request, jsonify, render_template, Blueprint
+from config.settings import settings
 
 # Import AgenticAICore with graceful handling for missing voice libraries
 try:
@@ -19,437 +18,62 @@ except ImportError as e:
 app = Flask(__name__)
 aimy = AgenticAICore()
 
-# Web Interface HTML Template
-WEB_TEMPLATE = """
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Aimy - Agentic AI Assistant</title>
-    <style>
-        * { margin: 0; padding: 0; box-sizing: border-box; }
-        body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            min-height: 100vh;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            padding: 20px;
-        }
-        .container {
-            background: rgba(255, 255, 255, 0.95);
-            border-radius: 20px;
-            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
-            padding: 30px;
-            max-width: 800px;
-            width: 100%;
-            margin: 20px 0;
-        }
-        .header {
-            text-align: center;
-            margin-bottom: 30px;
-        }
-        .header h1 {
-            color: #333;
-            font-size: 2.5rem;
-            margin-bottom: 10px;
-        }
-        .header .emoji {
-            font-size: 3rem;
-            margin-bottom: 10px;
-            display: block;
-        }
-        .subtitle {
-            color: #666;
-            font-size: 1.1rem;
-        }
-        .chat-container {
-            height: 400px;
-            border: 2px solid #e0e0e0;
-            border-radius: 15px;
-            overflow-y: auto;
-            padding: 20px;
-            margin-bottom: 20px;
-            background: #f9f9f9;
-        }
-        .message {
-            margin-bottom: 15px;
-            padding: 12px 16px;
-            border-radius: 12px;
-            max-width: 80%;
-            word-wrap: break-word;
-        }
-        .user-message {
-            background: #667eea;
-            color: white;
-            margin-left: auto;
-            text-align: right;
-        }
-        .ai-message {
-            background: #e8f4fd;
-            color: #333;
-            margin-right: auto;
-        }
-        .voice-control {
-            text-align: center;
-            padding: 20px 0;
-        }
-        .voice-button {
-            padding: 20px 40px;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
-            border: none;
-            border-radius: 50px;
-            cursor: pointer;
-            font-size: 18px;
-            font-weight: bold;
-            transition: all 0.3s ease;
-            box-shadow: 0 8px 20px rgba(102, 126, 234, 0.3);
-            margin: 10px;
-        }
-        .voice-button:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 12px 25px rgba(102, 126, 234, 0.4);
-        }
-        .voice-button:active {
-            transform: translateY(0);
-            box-shadow: 0 6px 15px rgba(102, 126, 234, 0.3);
-        }
-        .voice-button.listening {
-            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
-            animation: pulse 2s infinite;
-        }
-        .voice-button.processing {
-            background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
-            cursor: not-allowed;
-        }
-        @keyframes pulse {
-            0% { transform: scale(1); }
-            50% { transform: scale(1.05); }
-            100% { transform: scale(1); }
-        }
-        .status-indicator {
-            margin-top: 15px;
-            font-size: 16px;
-            font-weight: 500;
-        }
-        .listening-status {
-            color: #f5576c;
-        }
-        .processing-status {
-            color: #00f2fe;
-        }
-        .ready-status {
-            color: #667eea;
-        }
-        .loading {
-            display: none;
-            text-align: center;
-            color: #666;
-            font-style: italic;
-            margin: 10px 0;
-        }
-        .features {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-            gap: 15px;
-            margin-top: 20px;
-        }
-        .feature {
-            background: rgba(102, 126, 234, 0.1);
-            padding: 15px;
-            border-radius: 10px;
-            text-align: center;
-        }
-        .feature-icon {
-            font-size: 2rem;
-            margin-bottom: 10px;
-            display: block;
-        }
-    </style>
-</head>
-<body>
-    <div class="container">
-        <div class="header">
-            <span class="emoji">🤖</span>
-            <h1>Aimy</h1>
-            <p class="subtitle">Your Intelligent Agentic AI Assistant</p>
-        </div>
-        
-        <div class="chat-container" id="chatContainer">
-            <div class="message ai-message">
-                <strong>🤖 Aimy:</strong> Hello! I'm Aimy, your agentic AI assistant. I can help you with tasks, answer questions, create applications, and much more. What would you like me to do?
-            </div>
-        </div>
-        
-        <div class="loading" id="loadingIndicator">
-            🧠 Aimy is processing...
-        </div>
-        
-        <div class="voice-control">
-            <button onclick="startVoiceInteraction()" id="voiceButton" class="voice-button">
-                🎙️ Start Voice Conversation
-            </button>
-            <div class="status-indicator">
-                <span id="statusText" class="ready-status">Click to talk with Aimy</span>
-            </div>
-        </div>
-    </div>
-    
-    <div class="container">
-        <h3 style="text-align: center; margin-bottom: 20px; color: #333;">�️ Voice Commands You Can Say</h3>
-        <div class="features">
-            <div class="feature">
-                <span class="feature-icon">🎨</span>
-                <strong>"Create a calculator"</strong><br>
-                <small>Dynamic app creation</small>
-            </div>
-            <div class="feature">
-                <span class="feature-icon">🌐</span>
-                <strong>"Open YouTube"</strong><br>
-                <small>Launch websites & apps</small>
-            </div>
-            <div class="feature">
-                <span class="feature-icon">🧮</span>
-                <strong>"Calculate 25 times 4"</strong><br>
-                <small>Math & computations</small>
-            </div>
-            <div class="feature">
-                <span class="feature-icon">�</span>
-                <strong>"Open Terminal"</strong><br>
-                <small>System control</small>
-            </div>
-            <div class="feature">
-                <span class="feature-icon">📝</span>
-                <strong>"Write Python code"</strong><br>
-                <small>AI-powered coding</small>
-            </div>
-            <div class="feature">
-                <span class="feature-icon">💬</span>
-                <strong>"Help me with..."</strong><br>
-                <small>Natural conversations</small>
-            </div>
-        </div>
-        
-        <div style="text-align: center; margin-top: 30px; padding: 20px; background: rgba(102, 126, 234, 0.1); border-radius: 15px;">
-            <h4 style="color: #333; margin-bottom: 10px;">🎙️ Voice-First Experience</h4>
-            <p style="color: #666; margin: 0;">Simply click the voice button and start talking! Aimy will listen, understand, and respond with both text and voice.</p>
-        </div>
-    </div>
 
-    <script>
-        const chatContainer = document.getElementById('chatContainer');
-        const voiceButton = document.getElementById('voiceButton');
-        const statusText = document.getElementById('statusText');
-        const loadingIndicator = document.getElementById('loadingIndicator');
-        
-        let recognition = null;
-        let isListening = false;
-        let speechSynthesis = window.speechSynthesis;
+def _ensure_dirs():
+    """Create save/extra directories if missing."""
+    dirs = {
+        settings.primary_save_dir,
+        settings.secondary_save_dir,
+        *[os.path.expanduser(p) for p in settings.extra_save_paths],
+    }
+    for d in dirs:
+        if not d:
+            continue
+        try:
+            os.makedirs(d, exist_ok=True)
+        except Exception:
+            # best effort; don't crash startup
+            pass
 
-        // Initialize Speech Recognition
-        function initSpeechRecognition() {
-            if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
-                const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-                recognition = new SpeechRecognition();
-                
-                recognition.continuous = true;
-                recognition.interimResults = false;
-                recognition.lang = 'en-US';
-                
-                recognition.onstart = function() {
-                    isListening = true;
-                    updateVoiceButton('listening');
-                    updateStatus('🎙️ Listening... Speak now!', 'listening-status');
-                };
-                
-                recognition.onresult = function(event) {
-                    const transcript = event.results[event.results.length - 1][0].transcript;
-                    addMessage(transcript, true);
-                    processVoiceCommand(transcript);
-                };
-                
-                recognition.onerror = function(event) {
-                    console.error('Speech recognition error:', event.error);
-                    addMessage('Voice recognition error. Please try again.');
-                    stopListening();
-                };
-                
-                recognition.onend = function() {
-                    if (isListening) {
-                        // Restart recognition for continuous listening
-                        setTimeout(() => {
-                            if (isListening) {
-                                recognition.start();
-                            }
-                        }, 100);
-                    }
-                };
-                
-                return true;
-            }
-            return false;
-        }
 
-        function addMessage(message, isUser = false) {
-            const messageDiv = document.createElement('div');
-            messageDiv.className = `message ${isUser ? 'user-message' : 'ai-message'}`;
-            messageDiv.innerHTML = isUser ? 
-                `<strong>👤 You:</strong> ${message}` : 
-                `<strong>🤖 Aimy:</strong> ${message}`;
-            chatContainer.appendChild(messageDiv);
-            chatContainer.scrollTop = chatContainer.scrollHeight;
-        }
+_ensure_dirs()
 
-        function updateVoiceButton(state) {
-            voiceButton.className = `voice-button ${state}`;
-            switch(state) {
-                case 'listening':
-                    voiceButton.textContent = '🔴 Listening...';
-                    break;
-                case 'processing':
-                    voiceButton.textContent = '🧠 Processing...';
-                    break;
-                default:
-                    voiceButton.textContent = '🎙️ Start Voice Conversation';
-            }
-        }
+# Optional: pipeline orchestrator (LLM + prompt templates)
+try:
+    from src.pipeline.orchestrator import AgentPipeline
+    from src.tools.aimy_bridge import make_aimy_bridge
+    pipeline = AgentPipeline(tool_executor=make_aimy_bridge(aimy)) if True else None
+except Exception as _e:
+    pipeline = None
 
-        function updateStatus(text, className) {
-            statusText.textContent = text;
-            statusText.className = className;
-        }
+pipeline_active = bool(pipeline) and bool(getattr(settings, 'pipeline_enabled', False))
 
-        function startVoiceInteraction() {
-            if (!recognition && !initSpeechRecognition()) {
-                addMessage('Voice recognition is not supported in your browser. Please use Chrome, Safari, or Edge.');
-                return;
-            }
-
-            if (!isListening) {
-                isListening = true;
-                recognition.start();
-                addMessage('Voice conversation started! You can now speak to Aimy.');
-                voiceButton.onclick = stopListening;
-            } else {
-                stopListening();
-            }
-        }
-
-        function stopListening() {
-            isListening = false;
-            if (recognition) {
-                recognition.stop();
-            }
-            updateVoiceButton('ready');
-            updateStatus('Click to talk with Aimy', 'ready-status');
-            voiceButton.onclick = startVoiceInteraction;
-        }
-
-        async function processVoiceCommand(message) {
-            updateVoiceButton('processing');
-            updateStatus('🧠 Aimy is thinking...', 'processing-status');
-            loadingIndicator.style.display = 'block';
-
-            try {
-                const response = await fetch('/chat', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify({ message: message })
-                });
-
-                const data = await response.json();
-                
-                if (data.success) {
-                    addMessage(data.response);
-                    speakResponse(data.response);
-                    
-                    // Execute action if provided
-                    if (data.execute_action && data.action_url) {
-                        setTimeout(() => {
-                            window.open(data.action_url, '_blank');
-                        }, 1000); // Small delay to let user hear the response first
-                    }
-                } else {
-                    const errorMsg = 'Sorry, I encountered an error processing your request. Please try again.';
-                    addMessage(errorMsg);
-                    speakResponse(errorMsg);
-                }
-            } catch (error) {
-                console.error('Error:', error);
-                const errorMsg = 'Connection error. Please check your internet connection and try again.';
-                addMessage(errorMsg);
-                speakResponse(errorMsg);
-            } finally {
-                loadingIndicator.style.display = 'none';
-                if (isListening) {
-                    updateVoiceButton('listening');
-                    updateStatus('🎙️ Listening... Speak now!', 'listening-status');
-                } else {
-                    updateVoiceButton('ready');
-                    updateStatus('Click to talk with Aimy', 'ready-status');
-                }
-            }
-        }
-
-        function speakResponse(text) {
-            if (speechSynthesis) {
-                // Stop any ongoing speech
-                speechSynthesis.cancel();
-                
-                const utterance = new SpeechSynthesisUtterance(text);
-                utterance.rate = 1.0;
-                utterance.pitch = 1.0;
-                utterance.volume = 0.8;
-                
-                // Try to use a good voice
-                const voices = speechSynthesis.getVoices();
-                const preferredVoices = voices.filter(voice => 
-                    voice.name.includes('Karen') || 
-                    voice.name.includes('Samantha') || 
-                    voice.name.includes('Alex') ||
-                    voice.lang.startsWith('en-')
-                );
-                
-                if (preferredVoices.length > 0) {
-                    utterance.voice = preferredVoices[0];
-                }
-                
-                speechSynthesis.speak(utterance);
-            }
-        }
-
-        // Initialize voices when they're loaded
-        if (speechSynthesis.onvoiceschanged !== undefined) {
-            speechSynthesis.onvoiceschanged = function() {
-                // Voices are loaded
-            };
-        }
-
-        // Add welcome message with voice option
-        window.addEventListener('load', function() {
-            addMessage('Welcome! Click the voice button to start talking with me, or wait for me to speak.');
-            setTimeout(() => {
-                speakResponse('Hello! I am Aimy, your agentic AI assistant. Click the voice button to start our conversation.');
-            }, 1000);
-        });
-    </script>
-</body>
-</html>
-"""
+# API blueprint with optional prefix
+api_bp = Blueprint("api", __name__, url_prefix=settings.api_prefix or "")
 
 @app.route('/')
 def home():
-    """Aimy Web Interface"""
-    return render_template_string(WEB_TEMPLATE)
+    """NekoAI Web Interface"""
+    try:
+        ui_strings = settings.load_ui_strings()
+        client_config = {
+            'voiceLang': settings.voice_lang,
+            'voiceRate': settings.voice_rate,
+            'voicePitch': settings.voice_pitch,
+            'voiceVolume': settings.voice_volume,
+            'preferredVoices': settings.preferred_voices,
+            'sttRestartDelayMs': settings.stt_restart_delay_ms,
+            'apiPrefix': settings.api_prefix,
+        }
+    except Exception:
+        ui_strings = {}
+        client_config = {}
+    return render_template(settings.template_name, ui_strings=ui_strings, client_config=client_config)
 
-@app.route('/chat', methods=['POST'])
+@api_bp.route('/chat', methods=['POST'])
 def chat():
-    """Chat endpoint for Aimy"""
+    """Chat endpoint for NekoAI"""
+    global pipeline_active
     try:
         data = request.get_json()
         user_message = data.get('message', '').strip()
@@ -460,7 +84,29 @@ def chat():
                 'error': 'No message provided'
             })
         
-        # Process with Aimy
+        # If pipeline enabled and available, use it; else fallback to core
+        if pipeline_active:
+            try:
+                pipe_out = pipeline.run(user_message)
+                response = pipe_out.get('response', 'Ready to help!')
+                action_url = pipe_out.get('action_url')
+                return jsonify({
+                    'success': True,
+                    'response': response,
+                    'result': pipe_out.get('result'),
+                    'action_url': action_url,
+                    'execute_action': action_url is not None
+                })
+            except Exception as e:
+                # Auto-disable pipeline on runtime failure, fall back to core
+                pipeline_active = False
+                fallback_msg = f"Pipeline temporarily disabled due to error: {e}"
+                # Continue to core path with a warning
+                warning = fallback_msg
+        else:
+            warning = None
+
+        # Fallback: Process with Aimy core directly
         result = aimy.process_request(user_message)
         
         # Extract response message and handle actions
@@ -545,19 +191,25 @@ def chat():
                 else:
                     response = "❌ System control action failed. Please ensure proper permissions are set."
             
-            return jsonify({
+            payload = {
                 'success': True,
                 'response': response,
                 'result': result,
                 'action_url': action_url,
                 'execute_action': action_url is not None
-            })
+            }
+            if 'warning' in locals() and warning:
+                payload['warning'] = warning
+            return jsonify(payload)
         else:
-            return jsonify({
+            payload = {
                 'success': True,
                 'response': str(result) if result else "Ready to help!",
                 'result': result
-            })
+            }
+            if 'warning' in locals() and warning:
+                payload['warning'] = warning
+            return jsonify(payload)
         
     except Exception as e:
         return jsonify({
@@ -565,63 +217,110 @@ def chat():
             'error': f'Processing error: {str(e)}'
         })
 
-@app.route('/health')
+@api_bp.route('/health')
 def health():
     """Health check endpoint"""
     return jsonify({
         'status': 'healthy',
-        'ai': 'Aimy',
-        'version': '1.0.0'
+        'ai': settings.assistant_name,
+        'version': settings.assistant_version,
+        'type': settings.assistant_type,
     })
 
-@app.route('/api/capabilities')
+@app.route('/favicon.ico')
+def favicon():
+    """Favicon endpoint - returns 204 No Content"""
+    return '', 204
+
+@api_bp.route('/capabilities')
 def capabilities():
-    """API endpoint to get Aimy's capabilities"""
-    return jsonify({
-        'name': 'Aimy',
-        'type': 'Agentic AI Assistant',
-        'capabilities': [
-            'Dynamic application creation',
-            'System control and automation',
-            'Natural language processing',
-            'Code generation',
-            'Web browsing and search',
-            'Mathematical computations',
-            'File operations',
-            'Intelligent conversations'
-        ],
-        'features': [
-            'No hardcoded responses',
-            'AI-powered reasoning',
-            'OpenAI integration',
-            'Voice interaction support',
-            'Real-time adaptation'
-        ]
-    })
+    """API endpoint to get NekoAI capabilities"""
+    return jsonify(settings.load_capabilities_payload())
 
-@app.route('/view/<filename>')
+@api_bp.route('/transcribe', methods=['POST'])
+def api_transcribe():
+    """Transcribe uploaded audio with OpenAI Whisper (server-side)."""
+    try:
+        if 'audio' not in request.files:
+            return jsonify({ 'error': 'No audio file provided' }), 400
+
+        audio_file = request.files['audio']
+        if audio_file.filename == '':
+            return jsonify({ 'error': 'Empty filename' }), 400
+
+        import tempfile
+        from openai import OpenAI
+
+        api_key = os.getenv('OPENAI_API_KEY')
+        if not api_key:
+            return jsonify({
+                'error': 'OPENAI_API_KEY not configured on server',
+                'action': 'Set OPENAI_API_KEY env var and restart server.'
+            }), 503
+
+        with tempfile.NamedTemporaryFile(delete=False, suffix='.webm') as tmp:
+            audio_path = tmp.name
+            audio_file.save(audio_path)
+
+        client = OpenAI(api_key=api_key)
+        try:
+            result = client.audio.transcriptions.create(
+                model=settings.whisper_model_primary,
+                file=open(audio_path, 'rb')
+            )
+            text = getattr(result, 'text', None) or (result.get('text') if isinstance(result, dict) else None)
+        except Exception:
+            try:
+                result = client.audio.transcriptions.create(
+                    model=settings.whisper_model_fallback,
+                    file=open(audio_path, 'rb')
+                )
+                text = getattr(result, 'text', None) or (result.get('text') if isinstance(result, dict) else None)
+            except Exception as e2:
+                return jsonify({ 'error': f'Transcription failed: {e2}' }), 500
+        finally:
+            try:
+                os.remove(audio_path)
+            except Exception:
+                pass
+
+        if not text:
+            return jsonify({ 'error': 'Transcription failed' }), 500
+
+        return jsonify({ 'text': text })
+    except Exception as e:
+        return jsonify({ 'error': str(e) }), 500
+
+@api_bp.route('/view/<filename>')
 def view_generated_content(filename):
     """Serve generated content files"""
     try:
         import os
-        from flask import send_from_directory
+        from flask import send_file
+        # Security: only allow viewing files with safe names
+        safe_filename = os.path.basename(filename)
+
+        # Candidate locations are settings-driven
+        possible_paths = settings.save_paths_for(safe_filename)
         
-        # Security: only allow viewing files from generated_content directory
-        safe_filename = os.path.basename(filename)  # Remove any path traversal
-        content_dir = os.path.join(os.getcwd(), 'generated_content')
+        for file_path in possible_paths:
+            if os.path.exists(file_path) and os.path.isfile(file_path):
+                return send_file(file_path)
         
-        if os.path.exists(os.path.join(content_dir, safe_filename)):
-            return send_from_directory(content_dir, safe_filename)
-        else:
-            return "File not found", 404
+        return f"File '{filename}' not found in any location", 404
     except Exception as e:
-        return f"Error serving file: {e}", 500
+        return f"Error serving file: {str(e)}", 500
+
+
+# Register API blueprint after routes are defined
+app.register_blueprint(api_bp)
 
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 8000))
-    print(f"🚀 Starting Aimy web server on port {port}")
-    print("🤖 Aimy - Agentic AI Assistant")
-    print("💡 Ready to help with intelligent reasoning!")
+    print(f"🚀 Starting {settings.assistant_name} web server on port {port}")
+    print(f"🤖 {settings.assistant_name} - {settings.assistant_type}")
+    if settings.startup_tagline:
+        print(settings.startup_tagline)
     
     app.run(
         host='0.0.0.0', 

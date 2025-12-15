@@ -1,0 +1,424 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ ui_strings.get('title', 'NekoAI - Agentic AI Assistant') }}</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 20px;
+        }
+        .container {
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 20px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+            padding: 30px;
+            max-width: 800px;
+            width: 100%;
+            margin: 20px 0;
+        }
+        .header { text-align: center; margin-bottom: 30px; }
+        .header h1 { color: #333; font-size: 2.5rem; margin-bottom: 10px; }
+        .header .emoji { font-size: 3rem; margin-bottom: 10px; display: block; }
+        .subtitle { color: #666; font-size: 1.1rem; }
+        .chat-container {
+            height: 400px;
+            border: 2px solid #e0e0e0;
+            border-radius: 15px;
+            overflow-y: auto;
+            padding: 20px;
+            margin-bottom: 20px;
+            background: #f9f9f9;
+        }
+        .message { margin-bottom: 15px; padding: 12px 16px; border-radius: 12px; max-width: 80%; word-wrap: break-word; }
+        .user-message { background: #667eea; color: white; margin-left: auto; text-align: right; }
+        .ai-message { background: #e8f4fd; color: #333; margin-right: auto; }
+        .voice-control { text-align: center; padding: 20px 0; }
+        .voice-button {
+            padding: 20px 40px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 50px;
+            cursor: pointer;
+            font-size: 18px;
+            font-weight: bold;
+            transition: all 0.3s ease;
+            box-shadow: 0 8px 20px rgba(102, 126, 234, 0.3);
+            margin: 10px;
+        }
+        .voice-button:hover { transform: translateY(-2px); box-shadow: 0 12px 25px rgba(102, 126, 234, 0.4); }
+        .voice-button:active { transform: translateY(0); box-shadow: 0 6px 15px rgba(102, 126, 234, 0.3); }
+        .voice-button.listening { background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); animation: pulse 2s infinite; }
+        .voice-button.processing { background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%); cursor: not-allowed; }
+        @keyframes pulse { 0% { transform: scale(1); } 50% { transform: scale(1.05); } 100% { transform: scale(1); } }
+        .status-indicator { margin-top: 15px; font-size: 16px; font-weight: 500; }
+        .listening-status { color: #f5576c; }
+        .processing-status { color: #00f2fe; }
+        .ready-status { color: #667eea; }
+        .loading { display: none; text-align: center; color: #666; font-style: italic; margin: 10px 0; }
+        .features { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; margin-top: 20px; }
+        .feature { background: rgba(102, 126, 234, 0.1); padding: 15px; border-radius: 10px; text-align: center; }
+        .feature-icon { font-size: 2rem; margin-bottom: 10px; display: block; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <span class="emoji">{{ ui_strings.get('hero_emoji', '🤖') }}</span>
+            <h1>{{ ui_strings.get('hero_title', 'NekoAI') }}</h1>
+            <p class="subtitle">{{ ui_strings.get('hero_subtitle', 'Your Intelligent Agentic AI Assistant') }}</p>
+        </div>
+        <div class="chat-container" id="chatContainer">
+            <div class="message ai-message">
+                <strong>{{ ui_strings.get('ai_label', '🤖 NekoAI:') }}</strong> {{ ui_strings.get('welcome_prompt', "Hello! I'm NekoAI, your agentic AI assistant. I can help you with tasks, answer questions, create applications, and much more. What would you like me to do?") }}
+            </div>
+        </div>
+        <div class="loading" id="loadingIndicator">{{ ui_strings.get('loading', '🧠 NekoAI is processing...') }}</div>
+        <div class="voice-control">
+            <button onclick="startVoiceInteraction()" id="voiceButton" class="voice-button">
+                {{ ui_strings.get('voice_button_default', '🎙️ Start Voice Conversation') }}
+            </button>
+            <div class="status-indicator">
+                <span id="statusText" class="ready-status">{{ ui_strings.get('status_ready', 'Click to talk with NekoAI') }}</span>
+            </div>
+            <div style="margin-top:8px;text-align:center;color:#555;font-size:14px">
+                <label style="cursor:pointer">
+                    <input type="checkbox" id="useWhisperToggle" />
+                    {{ ui_strings.get('whisper_toggle', 'Use Whisper (server transcription)') }}
+                </label>
+            </div>
+        </div>
+    </div>
+
+    <div class="container">
+        <h3 style="text-align: center; margin-bottom: 20px; color: #333;">{{ ui_strings.get('voice_commands_title', '🎙️ Voice Commands You Can Say') }}</h3>
+        <div class="features">
+            {% for f in ui_strings.get('features', []) %}
+            <div class="feature">
+                <span class="feature-icon">{{ f.get('icon', '✨') }}</span>
+                <strong>{{ f.get('title', '') }}</strong><br>
+                <small>{{ f.get('subtitle', '') }}</small>
+            </div>
+            {% endfor %}
+        </div>
+        <div style="text-align: center; margin-top: 30px; padding: 20px; background: rgba(102, 126, 234, 0.1); border-radius: 15px;">
+            <h4 style="color: #333; margin-bottom: 10px;">{{ ui_strings.get('voice_experience_title', '🎙️ Voice-First Experience') }}</h4>
+            <p style="color: #666; margin: 0;">{{ ui_strings.get('voice_experience_desc', 'Simply click the voice button and start talking! NekoAI will listen, understand, and respond with both text and voice.') }}</p>
+        </div>
+    </div>
+
+    <script>
+        const AIMY_CONFIG = {{ client_config|tojson }};
+        const STR = {{ ui_strings|tojson }};
+        const API_PREFIX = (AIMY_CONFIG && AIMY_CONFIG.apiPrefix) ? AIMY_CONFIG.apiPrefix : '';
+    </script>
+    <script>
+        const chatContainer = document.getElementById('chatContainer');
+        const voiceButton = document.getElementById('voiceButton');
+        const statusText = document.getElementById('statusText');
+        const loadingIndicator = document.getElementById('loadingIndicator');
+        
+        let recognition = null;
+        let isListening = false;
+        let speechSynthesis = window.speechSynthesis;
+        let mediaRecorder = null;
+        let recordedChunks = [];
+
+        // Initialize Speech Recognition
+        function initSpeechRecognition() {
+            if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
+                const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+                recognition = new SpeechRecognition();
+                
+                recognition.continuous = true;
+                recognition.interimResults = false;
+                recognition.lang = (AIMY_CONFIG && AIMY_CONFIG.voiceLang) ? AIMY_CONFIG.voiceLang : 'en-US';
+                
+                recognition.onstart = function() {
+                    isListening = true;
+                    updateVoiceButton('listening');
+                    updateStatus(STR.status_listening || '🎙️ Listening... Speak now!', 'listening-status');
+                };
+                
+                recognition.onresult = function(event) {
+                    const transcript = event.results[event.results.length - 1][0].transcript;
+                    addMessage(transcript, true);
+                    processVoiceCommand(transcript);
+                };
+                
+                recognition.onerror = function(event) {
+                    console.error('Speech recognition error:', event.error);
+                    let errorMessage = STR.processing_error || 'Voice recognition error. Please try again.';
+                    
+                    switch(event.error) {
+                        case 'not-allowed':
+                            errorMessage = STR.mic_denied || '🔐 Microphone access denied. Please enable microphone permissions in your browser settings and reload the page.';
+                            break;
+                        case 'network':
+                            errorMessage = STR.network_error || '🌐 Network error. Please check your internet connection.';
+                            break;
+                        case 'no-speech':
+                            errorMessage = STR.no_speech || '🤐 No speech detected. Please speak louder or closer to the microphone.';
+                            break;
+                        case 'audio-capture':
+                            errorMessage = STR.audio_missing || '🎤 No microphone found. Please check your audio input device.';
+                            break;
+                    }
+                    
+                    addMessage(errorMessage);
+                    stopListening();
+                };
+                
+                recognition.onend = function() {
+                    if (isListening) {
+                        // Restart recognition for continuous listening
+                        setTimeout(() => {
+                            if (isListening) {
+                                recognition.start();
+                            }
+                        }, (AIMY_CONFIG && AIMY_CONFIG.sttRestartDelayMs) ? AIMY_CONFIG.sttRestartDelayMs : 100);
+                    }
+                };
+                
+                return true;
+            }
+            return false;
+        }
+
+        function addMessage(message, isUser = false) {
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `message ${isUser ? 'user-message' : 'ai-message'}`;
+            messageDiv.innerHTML = isUser ? 
+                `<strong>👤 You:</strong> ${message}` : 
+                `<strong>${STR.ai_label || '🤖 NekoAI:'}</strong> ${message}`;
+            chatContainer.appendChild(messageDiv);
+            chatContainer.scrollTop = chatContainer.scrollHeight;
+        }
+
+        function updateVoiceButton(state) {
+            voiceButton.className = `voice-button ${state}`;
+            switch(state) {
+                case 'listening':
+                    voiceButton.textContent = STR.voice_button_listening || '🔴 Listening...';
+                    break;
+                case 'processing':
+                    voiceButton.textContent = STR.voice_button_processing || '🧠 Processing...';
+                    break;
+                default:
+                    voiceButton.textContent = STR.voice_button_default || '🎙️ Start Voice Conversation';
+            }
+        }
+
+        function updateStatus(text, className) {
+            statusText.textContent = text;
+            statusText.className = className;
+        }
+
+        function startVoiceInteraction() {
+            const useWhisper = document.getElementById('useWhisperToggle').checked;
+            if (useWhisper) {
+                // Whisper flow: record audio and send to server
+                if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+                    addMessage(STR.audio_missing || '🎤 Microphone not available in this browser.');
+                    return;
+                }
+
+                if (!isListening) {
+                    isListening = true;
+                    updateVoiceButton('listening');
+                    updateStatus(STR.status_listening || '🎙️ Recording... click to stop', 'listening-status');
+
+                    navigator.mediaDevices.getUserMedia({ audio: true })
+                        .then(stream => {
+                            recordedChunks = [];
+                            mediaRecorder = new MediaRecorder(stream, { mimeType: 'audio/webm' });
+                            mediaRecorder.ondataavailable = e => { if (e.data.size > 0) recordedChunks.push(e.data); };
+                            mediaRecorder.onstop = async () => {
+                                try {
+                                    const blob = new Blob(recordedChunks, { type: 'audio/webm' });
+                                    updateVoiceButton('processing');
+                                    updateStatus(STR.status_processing || '🧠 Transcribing with Whisper...', 'processing-status');
+                                    const transcript = await transcribeWithWhisper(blob);
+                                    if (transcript) {
+                                        addMessage(transcript, true);
+                                        await processVoiceCommand(transcript);
+                                    } else {
+                                        addMessage(STR.processing_error || '❌ Transcription failed.');
+                                    }
+                                } catch (err) {
+                                    console.error(err);
+                                    addMessage(STR.processing_error || '❌ Transcription error.');
+                                } finally {
+                                    stream.getTracks().forEach(t => t.stop());
+                                    isListening = false;
+                                    updateVoiceButton('ready');
+                                    updateStatus(STR.status_ready || 'Click to talk with NekoAI', 'ready-status');
+                                }
+                            };
+                            mediaRecorder.start();
+                            voiceButton.onclick = stopListening;
+                        })
+                        .catch(err => {
+                            isListening = false;
+                            console.error('Microphone error:', err);
+                            addMessage(STR.mic_denied || '🔐 Microphone permission denied or unavailable.');
+                            updateVoiceButton('ready');
+                            updateStatus(STR.status_ready || 'Click to talk with NekoAI', 'ready-status');
+                        });
+                } else {
+                    stopListening();
+                }
+                return;
+            }
+            if (!recognition && !initSpeechRecognition()) {
+                addMessage(STR.voice_not_supported || 'Voice recognition is not supported in your browser. Please use Chrome, Edge, or Firefox.');
+                return;
+            }
+
+            if (!isListening) {
+                isListening = true;
+                updateVoiceButton('listening');
+                
+                if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+                    navigator.mediaDevices.getUserMedia({ audio: true })
+                        .then(stream => {
+                            recognition.start();
+                            addMessage(STR.voice_started || '🎤 Voice conversation started! You can now speak to NekoAI.');
+                            voiceButton.onclick = stopListening;
+                            stream.getTracks().forEach(track => track.stop());
+                        })
+                        .catch(err => {
+                            isListening = false;
+                            console.error('Microphone permission error:', err);
+                            addMessage(STR.mic_denied || '🔐 Microphone access denied. Please enable microphone permissions in your browser settings and try again.');
+                            updateVoiceButton('default');
+                        });
+                } else {
+                    try {
+                        recognition.start();
+                        addMessage(STR.voice_started || '🎤 Voice conversation started! You can now speak to NekoAI.');
+                        voiceButton.onclick = stopListening;
+                    } catch (err) {
+                        isListening = false;
+                        console.error('Voice interaction error:', err);
+                        addMessage(STR.processing_error || '❌ An error occurred. Please try again.');
+                        updateVoiceButton('default');
+                    }
+                }
+            } else {
+                stopListening();
+            }
+        }
+
+        function stopListening() {
+            isListening = false;
+            if (mediaRecorder && mediaRecorder.state !== 'inactive') {
+                mediaRecorder.stop();
+            }
+            if (recognition) {
+                recognition.stop();
+            }
+            updateVoiceButton('ready');
+            updateStatus(STR.status_ready || 'Click to talk with NekoAI', 'ready-status');
+            voiceButton.onclick = startVoiceInteraction;
+        }
+
+        async function processVoiceCommand(message) {
+            updateVoiceButton('processing');
+            updateStatus(STR.status_processing || '🧠 NekoAI is thinking...', 'processing-status');
+            loadingIndicator.style.display = 'block';
+
+            try {
+                const response = await fetch(`${API_PREFIX}/chat`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ message: message })
+                });
+
+                const data = await response.json();
+                
+                if (data.success) {
+                    addMessage(data.response);
+                    speakResponse(data.response);
+                    if (data.execute_action && data.action_url) {
+                        setTimeout(() => { window.open(data.action_url, '_blank'); }, 1000);
+                    }
+                } else {
+                    const errorMsg = STR.processing_error || 'Sorry, I encountered an error processing your request. Please try again.';
+                    addMessage(errorMsg);
+                    speakResponse(errorMsg);
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                const errorMsg = STR.connection_error || 'Connection error. Please check your internet connection and try again.';
+                addMessage(errorMsg);
+                speakResponse(errorMsg);
+            } finally {
+                loadingIndicator.style.display = 'none';
+                if (isListening) {
+                    updateVoiceButton('listening');
+                    updateStatus(STR.status_listening || '🎙️ Listening... Speak now!', 'listening-status');
+                } else {
+                    updateVoiceButton('ready');
+                    updateStatus(STR.status_ready || 'Click to talk with NekoAI', 'ready-status');
+                }
+            }
+        }
+
+        async function transcribeWithWhisper(blob) {
+            try {
+                const fd = new FormData();
+                fd.append('audio', blob, 'audio.webm');
+                const res = await fetch(`${API_PREFIX}/transcribe`, { method: 'POST', body: fd });
+                if (!res.ok) {
+                    const text = await res.text();
+                    console.error('Transcribe failed:', text);
+                    return null;
+                }
+                const data = await res.json();
+                return data.text || null;
+            } catch (e) {
+                console.error('Whisper error:', e);
+                return null;
+            }
+        }
+
+        function speakResponse(text) {
+            if (speechSynthesis) {
+                speechSynthesis.cancel();
+                const utterance = new SpeechSynthesisUtterance(text);
+                utterance.rate = (AIMY_CONFIG && AIMY_CONFIG.voiceRate) ? AIMY_CONFIG.voiceRate : 1.0;
+                utterance.pitch = (AIMY_CONFIG && AIMY_CONFIG.voicePitch) ? AIMY_CONFIG.voicePitch : 1.0;
+                utterance.volume = (AIMY_CONFIG && AIMY_CONFIG.voiceVolume) ? AIMY_CONFIG.voiceVolume : 0.8;
+                const voices = speechSynthesis.getVoices();
+                const preferred = (AIMY_CONFIG && AIMY_CONFIG.preferredVoices) ? AIMY_CONFIG.preferredVoices : ['Karen', 'Samantha', 'Alex'];
+                const preferredVoices = voices.filter(voice =>
+                    preferred.some(p => voice.name.includes(p)) ||
+                    voice.lang.startsWith((AIMY_CONFIG && AIMY_CONFIG.voiceLang) ? AIMY_CONFIG.voiceLang.split('-')[0] : 'en')
+                );
+                if (preferredVoices.length > 0) utterance.voice = preferredVoices[0];
+                speechSynthesis.speak(utterance);
+            }
+        }
+
+        if (speechSynthesis.onvoiceschanged !== undefined) {
+            speechSynthesis.onvoiceschanged = function() {};
+        }
+
+        window.addEventListener('load', function() {
+            addMessage(STR.welcome_initial || 'Welcome! Click the voice button to start talking with me, or wait for me to speak.');
+            setTimeout(() => {
+                speakResponse(STR.welcome_tts || 'Hello! I am Aimy, your agentic AI assistant. Click the voice button to start our conversation.');
+            }, 1000);
+        });
+    </script>
+</body>
+</html>

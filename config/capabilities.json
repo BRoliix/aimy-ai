@@ -1,0 +1,21 @@
+{
+  "name": "NekoAI",
+  "type": "Agentic AI Assistant",
+  "capabilities": [
+    "Dynamic application creation",
+    "System control and automation",
+    "Natural language processing",
+    "Code generation",
+    "Web browsing and search",
+    "Mathematical computations",
+    "File operations",
+    "Intelligent conversations"
+  ],
+  "features": [
+    "No hardcoded responses",
+    "AI-powered reasoning",
+    "OpenAI integration",
+    "Voice interaction support",
+    "Real-time adaptation"
+  ]
+}

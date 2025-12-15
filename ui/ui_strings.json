@@ -1,0 +1,18 @@
+{
+  "welcome_initial": "Welcome! Click the voice button to start talking with me, or wait for me to speak.",
+  "welcome_tts": "Hello! I am NekoAI, your agentic AI assistant. Click the voice button to start our conversation.",
+  "voice_started": "🎤 Voice conversation started! You can now speak to NekoAI.",
+  "voice_not_supported": "Voice recognition is not supported in your browser. Please use Chrome, Edge, or Firefox.",
+  "mic_denied": "🔐 Microphone access denied. Please enable microphone permissions in your browser settings and reload the page.",
+  "no_speech": "🤐 No speech detected. Please speak louder or closer to the microphone.",
+  "audio_missing": "🎤 No microphone found. Please check your audio input device.",
+  "network_error": "🌐 Network error. Please check your internet connection.",
+  "processing_error": "❌ An error occurred. Please try again.",
+  "connection_error": "Connection error. Please check your internet connection and try again.",
+  "voice_button_default": "🎙️ Start Voice Conversation",
+  "voice_button_listening": "🔴 Listening...",
+  "voice_button_processing": "🧠 Processing...",
+  "status_ready": "Click to talk with NekoAI",
+  "status_listening": "🎙️ Listening... Speak now!",
+  "status_processing": "🧠 NekoAI is thinking..."
+}
