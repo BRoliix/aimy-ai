@@ -712,36 +712,12 @@ print(response)
 "
 ```
 
-## �📄 License & Legal
-
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
-
-### Third-Party Dependencies
-- **OpenAI**: GPT-4 API usage subject to OpenAI Terms of Service
-- **Rich**: MIT License (Terminal formatting)
-- **Flask**: BSD License (Web framework)
-- **PyAudio**: MIT License (Voice processing)
-
-### Usage Rights
-- ✅ Commercial use permitted
-- ✅ Modification and distribution allowed  
-- ✅ Private use encouraged
-- ⚠️ No warranty or liability coverage
-- ℹ️ Attribution appreciated but not required
 
 ## 🔗 Resources & Links
 
 ### 🌐 Official Links
 - **🏠 Repository**: [GitHub - BRoliix/aimy-ai](https://github.com/BRoliix/aimy-ai)
 - **🚀 Deploy on Railway**: [One-Click Deploy](https://railway.app/template/new?template=https://github.com/BRoliix/aimy-ai&envs=OPENAI_API_KEY)
-- **📋 Issues & Support**: [GitHub Issues](https://github.com/BRoliix/aimy-ai/issues)
-- **📖 Documentation**: [Wiki Pages](https://github.com/BRoliix/aimy-ai/wiki)
-
-### 🤝 Community & Support
-- **💬 Discussions**: [GitHub Discussions](https://github.com/BRoliix/aimy-ai/discussions)
-- **🐛 Bug Reports**: Use GitHub Issues with detailed reproduction steps
-- **💡 Feature Requests**: [Enhancement Label](https://github.com/BRoliix/aimy-ai/issues?q=is%3Aissue+is%3Aopen+label%3Aenhancement)
-- **🔧 Development**: [Contributing Guidelines](CONTRIBUTING.md)
 
 ### 📚 Related Technologies
 - **OpenAI API**: [Documentation](https://platform.openai.com/docs)
